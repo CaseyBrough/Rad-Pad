@@ -60,18 +60,9 @@ export default function Calendar() {
           ))}
         </div>
       ) : events.length === 0 ? (
-        <div style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
-          padding: '52px 40px',
-          textAlign: 'center',
-          maxWidth: 480
-        }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: '52px 40px', textAlign: 'center', maxWidth: 480 }}>
           <div style={{ fontSize: 32, marginBottom: 16 }}>📅</div>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 10 }}>
-            Next Call TBD
-          </div>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 10 }}>Next Call TBD</div>
           <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 24 }}>
             Nothing scheduled yet — check back soon. Calls are usually posted 1–2 weeks out.
           </div>
@@ -85,7 +76,7 @@ export default function Calendar() {
             const { month, day } = formatDate(ev.event_date)
             const tagColor = getTagColor(ev.type)
             return (
-              <div key={ev.id} className="event-item">
+              <div key={ev.id} className="event-item" style={{ cursor: 'default' }}>
                 <div className="event-date-block">
                   <div className="event-month">{month}</div>
                   <div className="event-day">{day}</div>
@@ -96,10 +87,46 @@ export default function Calendar() {
                     {ev.type && <span className={`tag ${tagColor}`} style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>{ev.type}</span>}
                   </div>
                   <div className="event-desc">{ev.description}</div>
-                  <div className="event-meta">
-                    {ev.time && <span>{ev.time}</span>}
-                    {ev.duration && <span>{ev.duration}</span>}
-                    {ev.platform && <span>{ev.platform}</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                    <div className="event-meta">
+                      {ev.time && <span>{ev.time}</span>}
+                      {ev.duration && <span>{ev.duration}</span>}
+                      {ev.platform && <span>{ev.platform}</span>}
+                    </div>
+                    {ev.zoom_url && (
+                      <a
+                        href={ev.zoom_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 10,
+                          letterSpacing: '0.1em',
+                          textTransform: 'uppercase',
+                          color: '#fff',
+                          background: 'var(--pink)',
+                          border: 'none',
+                          borderRadius: 6,
+                          padding: '7px 14px',
+                          textDecoration: 'none',
+                          boxShadow: '0 0 14px rgba(255,45,120,0.35)',
+                          transition: 'all 0.2s',
+                          whiteSpace: 'nowrap'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 22px rgba(255,45,120,0.6)'}
+                        onMouseLeave={e => e.currentTarget.style.boxShadow = '0 0 14px rgba(255,45,120,0.35)'}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                          <path d="M2 4a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V4z" stroke="white" strokeWidth="1.3"/>
+                          <path d="M14 6l-4 2 4 2V6z" fill="white"/>
+                        </svg>
+                        Join Zoom
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
