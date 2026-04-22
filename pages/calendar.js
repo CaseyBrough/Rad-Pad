@@ -43,13 +43,47 @@ export default function Calendar() {
       <p className="section-desc">Upcoming community calls, events, and office hours.</p>
 
       {loading ? (
-        <div className="loading">Loading events...</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {[1,2,3].map(i => (
+            <div key={i} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', display: 'flex', gap: 24 }}>
+              <div style={{ minWidth: 48, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ height: 10, width: 32, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }} />
+                <div style={{ height: 28, width: 36, background: 'rgba(255,255,255,0.07)', borderRadius: 4 }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ height: 14, width: '60%', background: 'rgba(255,255,255,0.07)', borderRadius: 4, marginBottom: 10 }} />
+                <div style={{ height: 11, width: '90%', background: 'rgba(255,255,255,0.04)', borderRadius: 4, marginBottom: 6 }} />
+                <div style={{ height: 11, width: '70%', background: 'rgba(255,255,255,0.04)', borderRadius: 4, marginBottom: 12 }} />
+                <div style={{ height: 10, width: '40%', background: 'rgba(255,255,255,0.04)', borderRadius: 4 }} />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : events.length === 0 ? (
-        <div className="empty">No upcoming events.</div>
+        <div style={{
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          padding: '52px 40px',
+          textAlign: 'center',
+          maxWidth: 480
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 16 }}>📅</div>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 10 }}>
+            Next Call TBD
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 24 }}>
+            Nothing scheduled yet — check back soon. Calls are usually posted 1–2 weeks out.
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cyan)' }}>
+            In the meantime → check the Slack for announcements
+          </div>
+        </div>
       ) : (
         <div className="event-list">
           {events.map(ev => {
             const { month, day } = formatDate(ev.event_date)
+            const tagColor = getTagColor(ev.type)
             return (
               <div key={ev.id} className="event-item">
                 <div className="event-date-block">
@@ -59,14 +93,7 @@ export default function Calendar() {
                 <div className="event-body">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <div className="event-title">{ev.title}</div>
-                    {ev.type && (
-                      <span
-                        className={`tag ${getTagColor(ev.type)}`}
-                        style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
-                      >
-                        {ev.type}
-                      </span>
-                    )}
+                    {ev.type && <span className={`tag ${tagColor}`} style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>{ev.type}</span>}
                   </div>
                   <div className="event-desc">{ev.description}</div>
                   <div className="event-meta">
