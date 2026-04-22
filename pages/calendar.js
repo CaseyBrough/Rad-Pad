@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 const TAG_COLORS = {
   Live: 'tag-pink', Workshop: 'tag-amber', 'Office Hrs': 'tag-cyan',
-  'Hot Seat': 'tag-purple', Mindset: 'tag-purple', Q&A: 'tag-cyan'
+  'Hot Seat': 'tag-purple', Mindset: 'tag-purple', 'Q&A': 'tag-cyan'
 }
 
 export default function Calendar() {
