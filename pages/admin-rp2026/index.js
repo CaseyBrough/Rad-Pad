@@ -20,7 +20,7 @@ export default function Admin() {
   const [res, setRes] = useState({ title: '', description: '', category: 'Templates', file_url: '', file_type: 'PDF' })
 
   // Event form
-  const [ev, setEv] = useState({ title: '', description: '', event_date: '', time: '', duration: '', type: 'Live', platform: 'Zoom' })
+  const [ev, setEv] = useState({ title: '', description: '', event_date: '', time: '', duration: '', type: 'Live', platform: 'Zoom', zoom_url: '' })
 
   // Link form
   const [lnk, setLnk] = useState({ name: '', description: '', url: '', category: 'Software', emoji: '' })
@@ -44,7 +44,7 @@ export default function Admin() {
       if (!error) setRes({ title: '', description: '', category: 'Templates', file_url: '', file_type: 'PDF' })
     } else if (section === 'Event') {
       ;({ error } = await supabase.from('events').insert([ev]))
-      if (!error) setEv({ title: '', description: '', event_date: '', time: '', duration: '', type: 'Live', platform: 'Zoom' })
+      if (!error) setEv({ title: '', description: '', event_date: '', time: '', duration: '', type: 'Live', platform: 'Zoom', zoom_url: '' })
     } else if (section === 'Link') {
       ;({ error } = await supabase.from('links').insert([lnk]))
       if (!error) setLnk({ name: '', description: '', url: '', category: 'Software', emoji: '' })
@@ -219,6 +219,12 @@ export default function Admin() {
                 <div className="form-group">
                   <label className="form-label">Platform</label>
                   <input className="form-input" style={inputStyle} value={ev.platform} onChange={e => setEv(v => ({ ...v, platform: e.target.value }))} placeholder="Zoom" />
+                </div>
+              </div>
+              <div className="form-row single">
+                <div className="form-group">
+                  <label className="form-label">Zoom Link (members click to join)</label>
+                  <input className="form-input" style={inputStyle} value={ev.zoom_url || ''} onChange={e => setEv(v => ({ ...v, zoom_url: e.target.value }))} placeholder="https://zoom.us/j/..." />
                 </div>
               </div>
             </>
