@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 
-const TAG_COLORS = {
-  'Live': 'tag-pink',
-  'Workshop': 'tag-amber',
-  'Office Hrs': 'tag-cyan',
-  'Hot Seat': 'tag-purple',
-  'Mindset': 'tag-purple',
-  'Q&A': 'tag-cyan'
+function getTagColor(type) {
+  if (type === 'Live') return 'tag-pink'
+  if (type === 'Workshop') return 'tag-amber'
+  if (type === 'Office Hrs') return 'tag-cyan'
+  if (type === 'Hot Seat') return 'tag-purple'
+  if (type === 'Mindset') return 'tag-purple'
+  return 'tag-cyan'
 }
 
 export default function Calendar() {
@@ -50,7 +50,6 @@ export default function Calendar() {
         <div className="event-list">
           {events.map(ev => {
             const { month, day } = formatDate(ev.event_date)
-            const tagColor = TAG_COLORS[ev.type] || 'tag-cyan'
             return (
               <div key={ev.id} className="event-item">
                 <div className="event-date-block">
@@ -60,7 +59,14 @@ export default function Calendar() {
                 <div className="event-body">
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
                     <div className="event-title">{ev.title}</div>
-                    {ev.type && <span className={`tag ${tagColor}`} style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>{ev.type}</span>}
+                    {ev.type && (
+                      <span
+                        className={`tag ${getTagColor(ev.type)}`}
+                        style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}
+                      >
+                        {ev.type}
+                      </span>
+                    )}
                   </div>
                   <div className="event-desc">{ev.description}</div>
                   <div className="event-meta">
