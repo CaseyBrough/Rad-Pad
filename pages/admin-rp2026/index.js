@@ -27,6 +27,9 @@ export default function Admin() {
   const [pendingMembers, setPendingMembers] = useState([])
   const [approvedMembers, setApprovedMembers] = useState([])
   const [loadingMembers, setLoadingMembers] = useState(false)
+  const [editingMember, setEditingMember] = useState(null)
+  const [memberForm, setMemberForm] = useState({})
+  const [savingMember, setSavingMember] = useState(false)
 
   useEffect(() => {
     if (section === 'Member') {
@@ -66,6 +69,16 @@ export default function Admin() {
     if (!confirm('Delete this member?')) return
     await supabase.from('members').delete().eq('id', id)
     setSuccess('Deleted.')
+    loadMembers()
+  }
+
+  async function saveMember() {
+    setSavingMember(true)
+    const { id, created_at, ...rest } = memberForm
+    await supabase.from('members').update(rest).eq('id', memberForm.id)
+    setSavingMember(false)
+    setEditingMember(null)
+    setSuccess('Member updated.')
     loadMembers()
   }
 
@@ -188,15 +201,33 @@ export default function Admin() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {approvedMembers.map(m => (
-                <div key={m.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                  {m.photo_url && <img src={m.photo_url} alt={m.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />}
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{m.name}</div>
-                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)' }}>{[m.specialty, m.location].filter(Boolean).join(' · ')}</div>
-                  </div>
-                  <button onClick={() => deleteMember(m.id)} style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 6, padding: '6px 12px', color: 'var(--pink)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                    Remove
-                  </button>
+                <div key={m.id}>
+                  {editingMember === m.id ? (
+                    <div style={{ background: 'var(--card)', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 10, padding: '16px 18px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                        <div className="form-group"><label className="form-label">Name</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.name || ''} onChange={e => setMemberForm(f => ({ ...f, name: e.target.value }))} /></div>
+                        <div className="form-group"><label className="form-label">Location</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.location || ''} onChange={e => setMemberForm(f => ({ ...f, location: e.target.value }))} /></div>
+                        <div className="form-group"><label className="form-label">Specialty</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.specialty || ''} onChange={e => setMemberForm(f => ({ ...f, specialty: e.target.value }))} /></div>
+                        <div className="form-group"><label className="form-label">Website</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.website || ''} onChange={e => setMemberForm(f => ({ ...f, website: e.target.value }))} /></div>
+                      </div>
+                      <div className="form-group" style={{ marginBottom: 10 }}><label className="form-label">Bio</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.bio || ''} onChange={e => setMemberForm(f => ({ ...f, bio: e.target.value }))} /></div>
+                      <div className="form-group" style={{ marginBottom: 14 }}><label className="form-label">LinkedIn</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.linkedin || ''} onChange={e => setMemberForm(f => ({ ...f, linkedin: e.target.value }))} /></div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={saveMember} disabled={savingMember} style={{ background: 'var(--pink)', border: 'none', borderRadius: 6, padding: '7px 16px', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{savingMember ? 'Saving...' : 'Save'}</button>
+                        <button onClick={() => setEditingMember(null)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      {m.photo_url && <img src={m.photo_url} alt={m.name} style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{m.name}</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)' }}>{[m.specialty, m.location].filter(Boolean).join(' · ')}</div>
+                      </div>
+                      <button onClick={() => { setEditingMember(m.id); setMemberForm(m) }} style={{ background: 'rgba(0,245,228,0.08)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '6px 12px', color: 'var(--cyan)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Edit</button>
+                      <button onClick={() => deleteMember(m.id)} style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 6, padding: '6px 12px', color: 'var(--pink)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Remove</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
