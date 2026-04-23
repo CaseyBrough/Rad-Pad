@@ -80,7 +80,14 @@ export default function Directory() {
       }
     }
 
-    const { error: insertError } = await supabase.from('members').insert([{ ...form, photo_url, approved: false }])
+    function ensureHttps(url) {
+      if (!url) return ''
+      url = url.trim()
+      if (url && !url.startsWith('http://') && !url.startsWith('https://')) return 'https://' + url
+      return url
+    }
+    const cleanedForm = { ...form, website: ensureHttps(form.website), linkedin: ensureHttps(form.linkedin) }
+    const { error: insertError } = await supabase.from('members').insert([{ ...cleanedForm, photo_url, approved: false }])
     if (insertError) { setError('Submission failed. Try again.'); setSaving(false); return }
     setSaving(false)
     setSubmitted(true)
@@ -168,11 +175,11 @@ export default function Directory() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
             <div className="form-group">
               <label className="form-label">Website</label>
-              <input className="form-input" value={form.website} onChange={e => setField('website', e.target.value)} placeholder="https://..." style={{ fontFamily: 'inherit' }} />
+              <input className="form-input" value={form.website} onChange={e => setField('website', e.target.value)} placeholder="yoursite.com" style={{ fontFamily: 'inherit' }} />
             </div>
             <div className="form-group">
               <label className="form-label">LinkedIn</label>
-              <input className="form-input" value={form.linkedin} onChange={e => setField('linkedin', e.target.value)} placeholder="https://linkedin.com/in/..." style={{ fontFamily: 'inherit' }} />
+              <input className="form-input" value={form.linkedin} onChange={e => setField('linkedin', e.target.value)} placeholder="linkedin.com/in/yourname" style={{ fontFamily: 'inherit' }} />
             </div>
           </div>
 
