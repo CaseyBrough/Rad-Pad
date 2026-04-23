@@ -54,7 +54,6 @@ export default function Directory() {
   function handlePhoto(e) {
     const file = e.target.files[0]
     if (!file) return
-    if (file.size > 3 * 1024 * 1024) { setError('Photo must be under 3MB.'); return }
     setPhotoFile(file)
     setPhotoPreview(URL.createObjectURL(file))
     setError('')
@@ -72,9 +71,13 @@ export default function Directory() {
       const { error: uploadError } = await supabase.storage
         .from('member-photos')
         .upload(filename, photoFile, { contentType: photoFile.type })
-      if (uploadError) { setError('Photo upload failed. Try a smaller image.'); setSaving(false); return }
-      const { data: urlData } = supabase.storage.from('member-photos').getPublicUrl(filename)
-      photo_url = urlData.publicUrl
+      if (uploadError) {
+        setError(`Photo upload failed: ${uploadError.message}. Your profile will be submitted without a photo — you can ask to add one later.`)
+        photo_url = ''
+      } else {
+        const { data: urlData } = supabase.storage.from('member-photos').getPublicUrl(filename)
+        photo_url = urlData.publicUrl
+      }
     }
 
     const { error: insertError } = await supabase.from('members').insert([{ ...form, photo_url, approved: false }])
@@ -134,7 +137,7 @@ export default function Directory() {
                 Upload Photo
                 <input type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
               </label>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', marginTop: 6, letterSpacing: '0.05em' }}>JPG or PNG, max 3MB</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', marginTop: 6, letterSpacing: '0.05em' }}>JPG or PNG</div>
             </div>
           </div>
 
