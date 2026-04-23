@@ -54,7 +54,7 @@ export default function Links() {
       {loading ? <Skeleton /> : visible.length === 0 ? (
         <div className="empty">No links found.</div>
       ) : (
-        <div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
           {visible.map(link => (
             <a key={link.id} className="link-item" href={link.url} target="_blank" rel="noopener noreferrer">
               <div className="link-icon-wrap">{link.emoji || '🔗'}</div>
