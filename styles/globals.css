@@ -7,10 +7,10 @@
   --card: #13101A;
   --card-hover: #1E1828;
   --pink: #FF2D78;
-  --pink-glow: rgba(255, 45, 120, 0.55);
-  --pink-glow-soft: rgba(255, 45, 120, 0.2);
+  --pink-glow: rgba(255, 45, 120, 0.85);
+  --pink-glow-soft: rgba(255, 45, 120, 0.4);
   --cyan: #00F5E4;
-  --cyan-glow: rgba(0, 245, 228, 0.45);
+  --cyan-glow: rgba(0, 245, 228, 0.75);
   --text: #F0EBF8;
   --muted: #B8B2C8;
   --border: rgba(240, 235, 248, 0.07);
@@ -223,7 +223,7 @@ nav { flex: 1; padding: 14px 0; }
   border-color: var(--border-hover-pink);
   background: var(--card-hover);
   transform: translateY(-3px);
-  box-shadow: 0 8px 32px rgba(255,45,120,0.15), 0 0 0 1px rgba(255,45,120,0.12);
+  box-shadow: 0 8px 40px rgba(255,45,120,0.35), 0 0 0 1px rgba(255,45,120,0.12);
 }
 
 /* ── RECORDING LIST ── */
@@ -244,7 +244,7 @@ nav { flex: 1; padding: 14px 0; }
 .rec-item:hover {
   border-color: var(--border-hover-pink);
   background: var(--card-hover);
-  box-shadow: 0 6px 28px rgba(255,45,120,0.14), 0 0 0 1px rgba(255,45,120,0.1);
+  box-shadow: 0 6px 36px rgba(255,45,120,0.32), 0 0 0 1px rgba(255,45,120,0.1);
   transform: translateY(-2px);
 }
 
@@ -339,7 +339,7 @@ nav { flex: 1; padding: 14px 0; }
 .event-item:hover {
   border-color: var(--border-hover-cyan);
   background: var(--card-hover);
-  box-shadow: 0 6px 28px rgba(0,245,228,0.1), 0 0 0 1px rgba(0,245,228,0.08);
+  box-shadow: 0 6px 36px rgba(0,245,228,0.25), 0 0 0 1px rgba(0,245,228,0.08);
   transform: translateY(-2px);
 }
 
@@ -391,7 +391,7 @@ nav { flex: 1; padding: 14px 0; }
 .link-item:hover {
   border-color: var(--border-hover-pink);
   background: var(--card-hover);
-  box-shadow: 0 6px 28px rgba(255,45,120,0.14), 0 0 0 1px rgba(255,45,120,0.1);
+  box-shadow: 0 6px 36px rgba(255,45,120,0.32), 0 0 0 1px rgba(255,45,120,0.1);
   transform: translateY(-2px);
 }
 
