@@ -145,7 +145,7 @@ export default function Admin() {
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
 
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 40, color: 'var(--pink)', textShadow: '0 0 20px rgba(255,45,120,0.4)', marginBottom: 4 }}>The Rad Pad</div>
+          <div style={{ fontFamily: 'var(--font-display)', fontSize: 40, color: 'var(--pink)', textShadow: '0 0 44px rgba(255,45,120,0.8)', marginBottom: 4 }}>The Rad Pad</div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted)' }}>Admin Panel</div>
         </div>
 
