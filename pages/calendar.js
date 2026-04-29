@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 
+const CALENDLY_URL = 'https://calendly.com/your-link-here'
+
 function getTagColor(type) {
   if (type === 'Live') return 'tag-pink'
   if (type === 'Workshop') return 'tag-amber'
@@ -36,11 +38,31 @@ export default function Calendar() {
     }
   }
 
+  const today = new Date().toISOString().split('T')[0]
+
   return (
     <Layout>
       <div className="section-label">Schedule</div>
       <div className="section-title">Calendar</div>
       <p className="section-desc">Upcoming community calls, events, and office hours.</p>
+
+      {/* Host a call CTA */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, background: 'rgba(0,245,228,0.06)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 12, padding: '16px 22px', marginBottom: 28, flexWrap: 'wrap' }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 3 }}>Want to host a call?</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Grab a slot and bring a topic — the community loves member-led sessions.</div>
+        </div>
+        <a
+          href={CALENDLY_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cyan)', background: 'rgba(0,245,228,0.1)', border: '1px solid rgba(0,245,228,0.3)', borderRadius: 8, padding: '10px 18px', textDecoration: 'none', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 20px rgba(0,245,228,0.35)'}
+          onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+        >
+          Book a Slot →
+        </a>
+      </div>
 
       {loading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -60,18 +82,9 @@ export default function Calendar() {
           ))}
         </div>
       ) : events.length === 0 ? (
-        <div style={{
-          background: 'var(--card)',
-          border: '1px solid var(--border)',
-          borderRadius: 14,
-          padding: '52px 40px',
-          textAlign: 'center',
-          maxWidth: 480
-        }}>
+        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: '52px 40px', textAlign: 'center', maxWidth: 480 }}>
           <div style={{ fontSize: 32, marginBottom: 16 }}>📅</div>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 10 }}>
-            Next Call TBD
-          </div>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 10 }}>Next Call TBD</div>
           <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 24 }}>
             Nothing scheduled yet — check back soon. Calls are usually posted 1–2 weeks out.
           </div>
@@ -81,10 +94,13 @@ export default function Calendar() {
         </div>
       ) : (
         <div className="event-list">
-          {events.map(ev => {
+          {[
+            ...events.filter(ev => ev.event_date >= today),
+            ...events.filter(ev => ev.event_date < today).reverse()
+          ].map(ev => {
             const { month, day } = formatDate(ev.event_date)
             const tagColor = getTagColor(ev.type)
-            const isPast = ev.event_date && ev.event_date < new Date().toISOString().split('T')[0]
+            const isPast = ev.event_date < today
             return (
               <div key={ev.id} className="event-item" style={isPast ? { opacity: 0.4, cursor: 'default' } : {}}>
                 <div className="event-date-block" style={{ position: 'relative' }}>
@@ -105,10 +121,29 @@ export default function Calendar() {
                     }
                   </div>
                   <div className="event-desc">{ev.description}</div>
-                  <div className="event-meta">
-                    {ev.time && <span>{ev.time}</span>}
-                    {ev.duration && <span>{ev.duration}</span>}
-                    {ev.platform && <span>{ev.platform}</span>}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                    <div className="event-meta">
+                      {ev.time && <span>{ev.time}</span>}
+                      {ev.duration && <span>{ev.duration}</span>}
+                      {ev.platform && <span>{ev.platform}</span>}
+                    </div>
+                    {ev.zoom_url && !isPast && (
+                      <a
+                        href={ev.zoom_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#fff', background: 'var(--pink)', border: 'none', borderRadius: 6, padding: '7px 14px', textDecoration: 'none', boxShadow: '0 0 14px rgba(255,45,120,0.35)', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+                        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 28px rgba(255,45,120,0.65)'}
+                        onMouseLeave={e => e.currentTarget.style.boxShadow = '0 0 14px rgba(255,45,120,0.35)'}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                          <path d="M2 4a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V4z" stroke="white" strokeWidth="1.3"/>
+                          <path d="M14 6l-4 2 4 2V6z" fill="white"/>
+                        </svg>
+                        Join Zoom
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>
