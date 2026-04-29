@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 
-const CALENDLY_URL = 'https://calendly.com/your-link-here'
+const CALENDLY_URL = 'https://calendly.com/radpad2026/2hrs?month=2026-04'
 
 function getTagColor(type) {
   if (type === 'Live') return 'tag-pink'
