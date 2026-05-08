@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 
-function getTagColor(tag) {
-  if (tag === 'Sales' || tag === 'Pricing') return 'tag-pink'
-  if (tag === 'Mindset') return 'tag-purple'
-  if (tag === 'Ops') return 'tag-cyan'
+function getTypeColor(type) {
+  if (type === 'Community Call') return 'tag-cyan'
+  if (type === 'Skills Call') return 'tag-amber'
+  if (type === 'Theme Call') return 'tag-purple'
   return 'tag-amber'
 }
 
-const FILTERS = ['All', 'Sales', 'Mindset', 'Ops', 'Pricing', 'Marketing', 'Q&A']
+const FILTERS = ['All', 'Community Call', 'Skills Call', 'Theme Call']
 
 function Skeleton() {
   return (
@@ -48,11 +48,11 @@ export default function Recordings() {
   }, [])
 
   const visible = recordings.filter(r => {
-    const tags = r.tags || []
-    const matchFilter = filter === 'All' || tags.includes(filter)
+    const matchFilter = filter === 'All' || r.call_type === filter
     const matchSearch = !search ||
       r.title?.toLowerCase().includes(search.toLowerCase()) ||
-      r.description?.toLowerCase().includes(search.toLowerCase())
+      r.description?.toLowerCase().includes(search.toLowerCase()) ||
+      r.sub_topic?.toLowerCase().includes(search.toLowerCase())
     return matchFilter && matchSearch
   })
 
@@ -60,7 +60,7 @@ export default function Recordings() {
     <Layout>
       <div className="section-label">Archive</div>
       <div className="section-title">Call Recordings</div>
-      <p className="section-desc">Every coaching call, hot seat, and community session — searchable and tagged.</p>
+      <p className="section-desc">Every community call, skills session, and themed deep dive — searchable and organized.</p>
 
       <div className="controls">
         <input className="search-input" placeholder="Search recordings..." value={search} onChange={e => setSearch(e.target.value)} />
@@ -89,10 +89,14 @@ export default function Recordings() {
                 </div>
                 <div className="rec-body">
                   <div className="rec-tags">
-                    {isNewest && <span className="tag" style={{ background: 'rgba(255,45,120,0.2)', color: 'var(--pink)', border: '1px solid rgba(255,45,120,0.4)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 4 }}>Latest</span>}
-                    {(rec.tags || []).map(tag => (
-                      <span key={tag} className={`tag ${getTagColor(tag)}`}>{tag}</span>
-                    ))}
+                    {isNewest && (
+                      <span className="tag" style={{ background: 'rgba(255,45,120,0.2)', color: 'var(--pink)', border: '1px solid rgba(255,45,120,0.4)', fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 4 }}>Latest</span>
+                    )}
+                    {rec.call_type && (
+                      <span className={`tag ${getTypeColor(rec.call_type)}`}>
+                        {rec.call_type}{rec.sub_topic ? ` · ${rec.sub_topic}` : ''}
+                      </span>
+                    )}
                   </div>
                   <div className="rec-title">{rec.title}</div>
                   <div className="rec-desc">{rec.description}</div>
