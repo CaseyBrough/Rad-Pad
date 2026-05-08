@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 
 const SECTIONS = ['Recording', 'Resource', 'Event', 'Link', 'Member']
-const TAG_OPTIONS = ['Sales', 'Mindset', 'Ops', 'Pricing', 'Marketing', 'Q&A']
+const CALL_TYPES = ['Community Call', 'Skills Call', 'Theme Call']
 const RES_CATS = ['Templates', 'Guides', 'Scripts', 'Finance']
 const EVENT_TYPES = ['Live', 'Workshop', 'Office Hrs', 'Hot Seat', 'Mindset', 'Q&A']
 const LINK_CATS = ['Software', 'Gear', 'Finance', 'Education']
 
 const EMPTY = {
-  Recording: { title: '', description: '', date: '', duration: '', host: '', video_url: '', tags: [] },
+  Recording: { title: '', description: '', date: '', duration: '', host: '', video_url: '', call_type: '', sub_topic: '' },
   Resource: { title: '', description: '', category: 'Templates', file_url: '', file_type: 'PDF' },
   Event: { title: '', description: '', event_date: '', time: '', duration: '', type: 'Live', platform: 'Zoom', zoom_url: '' },
   Link: { name: '', description: '', url: '', category: 'Software', emoji: '' }
@@ -86,13 +86,6 @@ export default function Admin() {
     setForm(f => ({ ...f, [key]: val }))
   }
 
-  function toggleTag(tag) {
-    setForm(f => ({
-      ...f,
-      tags: f.tags.includes(tag) ? f.tags.filter(t => t !== tag) : [...f.tags, tag]
-    }))
-  }
-
   function startEdit(item) {
     setEditId(item.id)
     const { id, created_at, ...rest } = item
@@ -133,7 +126,10 @@ export default function Admin() {
 
   function getItemLabel(item) { return item.title || item.name || '(untitled)' }
   function getItemMeta(item) {
-    if (section === 'Recording') return `${item.date || ''} ${item.duration ? '· ' + item.duration : ''} ${item.host ? '· ' + item.host : ''}`
+    if (section === 'Recording') {
+      const type = item.call_type ? (item.sub_topic ? `${item.call_type} · ${item.sub_topic}` : item.call_type) : ''
+      return [item.date, item.duration ? item.duration : '', type].filter(Boolean).join(' · ')
+    }
     if (section === 'Resource') return `${item.category || ''} · ${item.file_type || ''}`
     if (section === 'Event') return `${item.event_date || ''} ${item.time ? '· ' + item.time : ''}`
     if (section === 'Link') return `${item.category || ''}`
@@ -249,7 +245,7 @@ export default function Admin() {
                 <>
                   <div className="form-row">
                     <div className="form-group"><label className="form-label">Title *</label><input className="form-input" style={inp} value={form.title || ''} onChange={e => setField('title', e.target.value)} placeholder="Q2 Sales Sprint..." /></div>
-                    <div className="form-group"><label className="form-label">Host</label><input className="form-input" style={inp} value={form.host || ''} onChange={e => setField('host', e.target.value)} placeholder="Jamie Reeves" /></div>
+                    <div className="form-group"><label className="form-label">Host</label><input className="form-input" style={inp} value={form.host || ''} onChange={e => setField('host', e.target.value)} placeholder="Casey" /></div>
                   </div>
                   <div className="form-row single"><div className="form-group"><label className="form-label">Description</label><textarea className="form-textarea" style={inp} value={form.description || ''} onChange={e => setField('description', e.target.value)} /></div></div>
                   <div className="form-row">
@@ -257,11 +253,20 @@ export default function Admin() {
                     <div className="form-group"><label className="form-label">Duration</label><input className="form-input" style={inp} value={form.duration || ''} onChange={e => setField('duration', e.target.value)} placeholder="58m" /></div>
                   </div>
                   <div className="form-row single"><div className="form-group"><label className="form-label">Video URL</label><input className="form-input" style={inp} value={form.video_url || ''} onChange={e => setField('video_url', e.target.value)} placeholder="https://..." /></div></div>
-                  <div className="form-group">
-                    <label className="form-label">Tags</label>
-                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginTop: 6 }}>
-                      {TAG_OPTIONS.map(tag => <button key={tag} type="button" className={`filter-tag${(form.tags || []).includes(tag) ? ' active' : ''}`} onClick={() => toggleTag(tag)}>{tag}</button>)}
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label className="form-label">Call Type</label>
+                      <select className="form-select" style={inp} value={form.call_type || ''} onChange={e => setField('call_type', e.target.value)}>
+                        <option value="">Select type...</option>
+                        {CALL_TYPES.map(t => <option key={t}>{t}</option>)}
+                      </select>
                     </div>
+                    {(form.call_type === 'Skills Call' || form.call_type === 'Theme Call') && (
+                      <div className="form-group">
+                        <label className="form-label">Sub-topic <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></label>
+                        <input className="form-input" style={inp} value={form.sub_topic || ''} onChange={e => setField('sub_topic', e.target.value)} placeholder={form.call_type === 'Skills Call' ? 'e.g. DaVinci Resolve' : 'e.g. Pricing'} />
+                      </div>
+                    )}
                   </div>
                 </>
               )}
