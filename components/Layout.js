@@ -7,6 +7,10 @@ const NAV = [
     icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 6.5L8 2l6 4.5V14H10v-4H6v4H2V6.5z" stroke="currentColor" strokeWidth="1.3" fill="none"/></svg>
   },
   {
+    href: '/the-pad', label: 'The Pad',
+    icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M2 3h12M2 6h8M2 9h10M2 12h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+  },
+  {
     href: '/resources', label: 'Resources',
     icon: <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.3"/><path d="M5 6h6M5 9h6M5 12h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
   },
