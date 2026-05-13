@@ -29,6 +29,7 @@ const QUICK = [
 export default function Home() {
   const [latestRec, setLatestRec] = useState(null)
   const [nextEvent, setNextEvent] = useState(null)
+  const [announcement, setAnnouncement] = useState(null)
 
   useEffect(() => {
     async function load() {
@@ -49,6 +50,15 @@ export default function Home() {
         .limit(1)
         .single()
       if (ev) setNextEvent(ev)
+
+      const { data: ann } = await supabase
+        .from('announcements')
+        .select('*')
+        .eq('archived', false)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+      if (ann) setAnnouncement(ann)
     }
     load()
   }, [])
@@ -105,6 +115,37 @@ export default function Home() {
               </Link>
             )}
           </div>
+        )}
+
+        {/* LATEST ANNOUNCEMENT */}
+        {announcement && (
+          <Link href="/the-pad" style={{ textDecoration: 'none', display: 'block', marginBottom: 40 }}>
+            <div style={{
+              background: 'rgba(255,45,120,0.04)',
+              border: '1px solid rgba(255,45,120,0.25)',
+              borderRadius: 14,
+              padding: '18px 24px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: 14,
+              cursor: 'pointer',
+              transition: 'border-color 0.18s, box-shadow 0.18s',
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,45,120,0.5)'; e.currentTarget.style.boxShadow = '0 0 18px rgba(255,45,120,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,45,120,0.25)'; e.currentTarget.style.boxShadow = 'none' }}
+            >
+              <span style={{ fontSize: 16, marginTop: 1 }}>📌</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 6 }}>
+                  Bulletin Board · {new Date(announcement.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                  {announcement.message}
+                </div>
+              </div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', whiteSpace: 'nowrap', marginTop: 2 }}>View all →</span>
+            </div>
+          </Link>
         )}
 
         <div className="section-label">Quick Access</div>
