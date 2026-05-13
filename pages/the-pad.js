@@ -22,27 +22,26 @@ const CHANNELS = [
       {
         name: 'introductions',
         emoji: '👋',
-        description: 'New here? Drop a quick intro so we know who you are and what you\'re building.',
+        description: "New here? Drop a quick intro so we know who you are and what you're building.",
         url: 'https://theradpad.slack.com/archives/C0A3JCQCDAP',
-        note: null,
         introFormat: true,
       },
       {
         name: 'wins',
         emoji: '🏆',
-        description: 'Big wins, small wins, progress wins. Share what\'s working, what you shipped, or something you\'re proud of.',
+        description: "Big wins, small wins, progress wins. Share what's working, what you shipped, or something you're proud of.",
         url: 'https://theradpad.slack.com/archives/C0A3QQ4DLCA',
       },
       {
         name: 'random',
         emoji: '🎲',
-        description: 'Off-topic, fun, and human. Memes, music, side conversations, and anything that doesn\'t fit elsewhere.',
+        description: "Off-topic, fun, and human. Memes, music, side conversations, and anything that doesn't fit elsewhere.",
         url: 'https://theradpad.slack.com/archives/C0A412M04MV',
       },
       {
         name: 'mindset',
         emoji: '🧠',
-        description: 'The mental side of running a business. Mindset, motivation, and the stuff nobody talks about enough.',
+        description: "The mental side of running a business. Mindset, motivation, and the stuff nobody talks about enough.",
         url: 'https://theradpad.slack.com/archives/C0AJMULEY0P',
       },
     ],
@@ -84,7 +83,7 @@ const CHANNELS = [
         emoji: '💼',
         description: 'Post project needs and collaboration here. Hiring an editor, looking for a colorist, staffing a shoot, white-labeling overflow, or bringing someone in for specialized support.',
         url: 'https://theradpad.slack.com/archives/C0AEBPQ6LDB',
-        note: 'Demand-driven only — you\'re posting an opportunity, not pitching yourself.',
+        note: "Demand-driven only — you're posting an opportunity, not pitching yourself.",
       },
       {
         name: 'selling-services',
@@ -184,13 +183,19 @@ const SELLING_ALLOWED = [
   'Software built for video businesses',
 ]
 
+const INTRO_ROWS = [
+  { label: 'Name', example: 'Casey' },
+  { label: 'Location', example: 'Charleston, SC' },
+  { label: 'Links', example: 'bodastudios.com · LinkedIn · IG' },
+  { label: 'Fun fact', example: "I edit in DaVinci and play men's league hockey" },
+]
+
 function AnnouncementCard({ item, isArchive }) {
-  const date = new Date(item.created_at)
-  const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const formatted = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   return (
     <div style={{
       background: isArchive ? 'rgba(255,255,255,0.02)' : 'rgba(255,45,120,0.04)',
-      border: `1px solid ${isArchive ? 'var(--border)' : 'rgba(255,45,120,0.25)'}`,
+      border: '1px solid ' + (isArchive ? 'var(--border)' : 'rgba(255,45,120,0.25)'),
       borderRadius: 12,
       padding: '18px 22px',
       opacity: isArchive ? 0.6 : 1,
@@ -211,7 +216,7 @@ function ChannelCard({ channel }) {
         onMouseLeave={() => setHovered(false)}
         style={{
           background: hovered ? 'rgba(255,45,120,0.05)' : 'var(--card)',
-          border: `1px solid ${hovered ? 'rgba(255,45,120,0.5)' : 'var(--border)'}`,
+          border: '1px solid ' + (hovered ? 'rgba(255,45,120,0.5)' : 'var(--border)'),
           borderRadius: 12,
           padding: '16px 20px',
           cursor: 'pointer',
@@ -225,18 +230,12 @@ function ChannelCard({ channel }) {
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: hovered ? 'var(--pink)' : 'var(--cyan)', letterSpacing: '0.05em', transition: 'color 0.18s' }}>#{channel.name}</span>
         </div>
 
-        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55, marginBottom: 0 }}>{channel.description}</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55 }}>{channel.description}</div>
 
-        {/* Intro format */}
         {channel.introFormat && (
           <div style={{ marginTop: 12, background: 'rgba(0,245,228,0.05)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 8, padding: '10px 12px' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Intro format</div>
-            {[
-              { label: 'Name', example: 'Casey' },
-              { label: 'Location', example: 'Charleston, SC' },
-              { label: 'Links', example: 'bodastudios.com · LinkedIn · IG' },
-              { label: 'Fun fact', example: 'I edit in DaVinci and play men\'s league hockey' },
-            ].map(row => (
+            {INTRO_ROWS.map(row => (
               <div key={row.label} style={{ display: 'flex', gap: 8, marginBottom: 4, alignItems: 'baseline' }}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--pink)', minWidth: 56 }}>{row.label}</span>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>{row.example}</span>
@@ -245,7 +244,6 @@ function ChannelCard({ channel }) {
           </div>
         )}
 
-        {/* Selling services allowed list */}
         {channel.sellingServices && (
           <div style={{ marginTop: 12 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -259,24 +257,19 @@ function ChannelCard({ channel }) {
           </div>
         )}
 
-        {/* Note pill */}
         {channel.note && (
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '5px 10px', marginTop: 10, lineHeight: 1.5 }}>
             {channel.note}
           </div>
         )}
 
-        {/* Inline link */}
         {channel.link && (
-          
-            href={channel.link.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={e => e.stopPropagation()}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', textDecoration: 'none', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '5px 10px' }}
+          <span
+            onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(channel.link.href, '_blank') }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', textDecoration: 'none', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
           >
-            <span>↗</span> {channel.link.label}
-          </a>
+            ↗ {channel.link.label}
+          </span>
         )}
       </div>
     </a>
@@ -310,7 +303,6 @@ export default function ThePad() {
       <div className="section-title">The Pad</div>
       <p className="section-desc">Everything you need to know about how this community works — channels, rules, and what's happening.</p>
 
-      {/* BULLETIN BOARD */}
       {!loading && announcements.length > 0 && (
         <div style={{ marginBottom: 48 }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 16 }}>📌 Bulletin Board</div>
@@ -320,13 +312,11 @@ export default function ThePad() {
         </div>
       )}
 
-      {/* CHANNEL GUIDE */}
       <div style={{ marginBottom: 48 }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Channel Guide</div>
         <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 28, lineHeight: 1.6 }}>
           Slack messages disappear after 90 days on our plan — this is the permanent record of how each channel works. Click any channel to open it in Slack.
         </div>
-
         {CHANNELS.map(group => (
           <div key={group.group} style={{ marginBottom: 36 }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
@@ -339,7 +329,6 @@ export default function ThePad() {
         ))}
       </div>
 
-      {/* REGIONAL MAP */}
       <div style={{ marginBottom: 48 }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
           Regional Map
@@ -351,33 +340,29 @@ export default function ThePad() {
         />
       </div>
 
-      {/* CALENDAR LINKS */}
       <div style={{ marginBottom: 48 }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
           Community Calendar
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          
-            href="GOOGLE_CAL_URL_PLACEHOLDER"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', textDecoration: 'none', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+          <span
+            onClick={() => window.open('GOOGLE_CAL_URL_PLACEHOLDER', '_blank')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', textDecoration: 'none', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
           >
             📅 View Google Calendar
-          </a>
-          
-            href="ICAL_URL_PLACEHOLDER"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', textDecoration: 'none', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase' }}
+          </span>
+          <span
+            onClick={() => window.open('https://calendar.google.com/calendar/ical/radpad2026%40gmail.com/public/basic.ics', '_blank')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', textDecoration: 'none', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
           >
             📆 Add iCal Feed
-          </a>
+          </span>
         </div>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.06em' }}>
           Add the iCal feed to sync community calls directly to your own calendar.
         </div>
       </div>
 
-      {/* ARCHIVE */}
       {archived.length > 0 && (
         <div>
           <button
