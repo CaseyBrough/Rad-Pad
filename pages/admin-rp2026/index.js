@@ -1,16 +1,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 
-const SECTIONS = ['Recording', 'Resource', 'Event', 'Link', 'Member']
+const SECTIONS = ['Recording', 'Resource', 'Event', 'Link', 'Member', 'Announcement']
 const CALL_TYPES = ['Community Call', 'Skills Call', 'Theme Call']
 const RES_CATS = ['Templates', 'Guides', 'Scripts', 'Finance']
-const EVENT_TYPES = ['Live', 'Workshop', 'Office Hrs', 'Hot Seat', 'Mindset', 'Q&A']
+const EVENT_TYPES = ['Community Call', 'Skills Call', 'Theme Call']
 const LINK_CATS = ['Software', 'Gear', 'Finance', 'Education']
 
 const EMPTY = {
   Recording: { title: '', description: '', date: '', duration: '', host: '', video_url: '', call_type: '', sub_topic: '' },
   Resource: { title: '', description: '', category: 'Templates', file_url: '', file_type: 'PDF' },
-  Event: { title: '', description: '', event_date: '', time: '', duration: '', type: 'Live', platform: 'Zoom', zoom_url: '' },
+  Event: { title: '', description: '', event_date: '', time: '', duration: '', type: 'Community Call', platform: 'Zoom', zoom_url: '' },
   Link: { name: '', description: '', url: '', category: 'Software', emoji: '' }
 }
 
@@ -31,9 +31,17 @@ export default function Admin() {
   const [memberForm, setMemberForm] = useState({})
   const [savingMember, setSavingMember] = useState(false)
 
+  // Announcements
+  const [announcements, setAnnouncements] = useState([])
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false)
+  const [announcementText, setAnnouncementText] = useState('')
+  const [savingAnnouncement, setSavingAnnouncement] = useState(false)
+
   useEffect(() => {
     if (section === 'Member') {
       loadMembers()
+    } else if (section === 'Announcement') {
+      loadAnnouncements()
     } else {
       setForm(EMPTY[section])
       setEditId(null)
@@ -57,6 +65,46 @@ export default function Admin() {
     setPendingMembers(pending || [])
     setApprovedMembers(approved || [])
     setLoadingMembers(false)
+  }
+
+  async function loadAnnouncements() {
+    setLoadingAnnouncements(true)
+    const { data } = await supabase.from('announcements').select('*').order('created_at', { ascending: false })
+    setAnnouncements(data || [])
+    setLoadingAnnouncements(false)
+  }
+
+  async function postAnnouncement() {
+    if (!announcementText.trim()) return
+    setSavingAnnouncement(true)
+    const { error } = await supabase.from('announcements').insert([{ message: announcementText.trim(), archived: false }])
+    if (!error) {
+      setAnnouncementText('')
+      setSuccess('Posted.')
+      loadAnnouncements()
+    } else {
+      setSuccess(`Error: ${error.message}`)
+    }
+    setSavingAnnouncement(false)
+  }
+
+  async function archiveAnnouncement(id) {
+    await supabase.from('announcements').update({ archived: true }).eq('id', id)
+    setSuccess('Archived.')
+    loadAnnouncements()
+  }
+
+  async function unarchiveAnnouncement(id) {
+    await supabase.from('announcements').update({ archived: false }).eq('id', id)
+    setSuccess('Restored.')
+    loadAnnouncements()
+  }
+
+  async function deleteAnnouncement(id) {
+    if (!confirm('Delete this announcement permanently?')) return
+    await supabase.from('announcements').delete().eq('id', id)
+    setSuccess('Deleted.')
+    loadAnnouncements()
   }
 
   async function approveMember(id) {
@@ -136,6 +184,13 @@ export default function Admin() {
     return ''
   }
 
+  const activeAnnouncements = announcements.filter(a => !a.archived)
+  const archivedAnnouncements = announcements.filter(a => a.archived)
+
+  function formatDate(ts) {
+    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh', padding: '40px 36px', fontFamily: 'var(--font-body)', color: 'var(--text)' }}>
       <div style={{ maxWidth: 720, margin: '0 auto' }}>
@@ -152,6 +207,79 @@ export default function Admin() {
             </button>
           ))}
         </div>
+
+        {/* ANNOUNCEMENTS */}
+        {section === 'Announcement' && (
+          <div>
+            {success && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: success.startsWith('Error') ? 'var(--pink)' : 'var(--cyan)', marginBottom: 16 }}>{success}</div>}
+
+            <div className="admin-form" style={{ marginBottom: 32 }}>
+              <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.05em', color: 'var(--text)', marginBottom: 16 }}>Post Announcement</h2>
+              <div className="form-group">
+                <label className="form-label">Message</label>
+                <textarea
+                  className="form-textarea"
+                  style={{ fontFamily: 'inherit', minHeight: 120 }}
+                  value={announcementText}
+                  onChange={e => setAnnouncementText(e.target.value)}
+                  placeholder="What do you want the community to know..."
+                />
+              </div>
+              <button
+                className="submit-btn"
+                style={{ margin: 0, marginTop: 12 }}
+                onClick={postAnnouncement}
+                disabled={savingAnnouncement || !announcementText.trim()}
+              >
+                {savingAnnouncement ? 'Posting...' : 'Post to Bulletin Board'}
+              </button>
+            </div>
+
+            {/* Active */}
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 12 }}>
+              Live ({activeAnnouncements.length})
+            </div>
+            {loadingAnnouncements ? (
+              <div className="loading">Loading...</div>
+            ) : activeAnnouncements.length === 0 ? (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', marginBottom: 32 }}>Nothing posted yet.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 36 }}>
+                {activeAnnouncements.map(a => (
+                  <div key={a.id} style={{ background: 'rgba(255,45,120,0.04)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 12, padding: '16px 20px' }}>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--pink)', marginBottom: 8, letterSpacing: '0.1em' }}>{formatDate(a.created_at)}</div>
+                    <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, marginBottom: 14, whiteSpace: 'pre-wrap' }}>{a.message}</div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={() => archiveAnnouncement(a.id)} style={{ background: 'rgba(216,212,232,0.08)', border: '1px solid rgba(216,212,232,0.2)', borderRadius: 6, padding: '5px 12px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Archive</button>
+                      <button onClick={() => deleteAnnouncement(a.id)} style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 6, padding: '5px 12px', color: 'var(--pink)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Delete</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Archived */}
+            {archivedAnnouncements.length > 0 && (
+              <>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>
+                  Archived ({archivedAnnouncements.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {archivedAnnouncements.map(a => (
+                    <div key={a.id} style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 18px', opacity: 0.7 }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', marginBottom: 6, letterSpacing: '0.1em' }}>{formatDate(a.created_at)}</div>
+                      <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 12, whiteSpace: 'pre-wrap' }}>{a.message}</div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => unarchiveAnnouncement(a.id)} style={{ background: 'rgba(0,245,228,0.08)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '5px 12px', color: 'var(--cyan)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Restore</button>
+                        <button onClick={() => deleteAnnouncement(a.id)} style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 6, padding: '5px 12px', color: 'var(--pink)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Delete</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {/* MEMBER APPROVALS */}
         {section === 'Member' && (
@@ -231,7 +359,7 @@ export default function Admin() {
         )}
 
         {/* CONTENT FORMS */}
-        {section !== 'Member' && (
+        {section !== 'Member' && section !== 'Announcement' && (
           <>
             <div className="admin-form">
               <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.05em', color: 'var(--text)', marginBottom: 20, display: 'flex', alignItems: 'center' }}>
@@ -289,7 +417,7 @@ export default function Admin() {
                 <>
                   <div className="form-row">
                     <div className="form-group"><label className="form-label">Title *</label><input className="form-input" style={inp} value={form.title || ''} onChange={e => setField('title', e.target.value)} placeholder="Weekly Group Call" /></div>
-                    <div className="form-group"><label className="form-label">Type</label><select className="form-select" style={inp} value={form.type || 'Live'} onChange={e => setField('type', e.target.value)}>{EVENT_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
+                    <div className="form-group"><label className="form-label">Type</label><select className="form-select" style={inp} value={form.type || 'Community Call'} onChange={e => setField('type', e.target.value)}>{EVENT_TYPES.map(t => <option key={t}>{t}</option>)}</select></div>
                   </div>
                   <div className="form-row single"><div className="form-group"><label className="form-label">Description</label><textarea className="form-textarea" style={inp} value={form.description || ''} onChange={e => setField('description', e.target.value)} /></div></div>
                   <div className="form-row">
