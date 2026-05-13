@@ -108,7 +108,6 @@ const CHANNELS = [
         name: 'community-calls',
         emoji: '📹',
         description: 'Call recordings, links, and updates. If you missed a call live, this is where you catch up.',
-        url: 'https://theradpad.slack.com/archives/C0A78EGFV0C',
         link: { label: 'View call log', href: 'https://docs.google.com/spreadsheets/d/15sytr2FPCEHvXFLrEKxlMEgTrH6cBEAjcASq0kzZWb4/edit?usp=sharing' },
       },
     ],
