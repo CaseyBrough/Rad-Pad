@@ -119,11 +119,25 @@ const CHANNELS = [
       {
         name: 'regional-meetups',
         emoji: '📍',
-        description: 'In-person hangs and local connections. Share meetups, city-specific get-togethers, or casual hangs.\n\nActive regional channels: #region-canada · #region-south-east · #region-texas · #region-new-england · #region-west-coast · #region-midwest · #region-mountain-west · #region-world',
+        description: 'In-person hangs and local connections. Share meetups, city-specific get-togethers, or casual hangs.',
         url: 'https://theradpad.slack.com/archives/C0A3JCTLDL3',
+        regionalList: true,
       },
     ],
   },
+]
+
+const REGIONAL_CHANNELS = [
+  { name: 'region-canada', emoji: '🍁' },
+  { name: 'region-south-east', emoji: '🌴' },
+  { name: 'region-texas', emoji: '⭐' },
+  { name: 'region-new-england', emoji: '🦞' },
+  { name: 'region-west-coast', emoji: '🌊' },
+  { name: 'region-midwest', emoji: '🌾' },
+  { name: 'region-mountain-west', emoji: '🏔️' },
+  { name: 'region-world', emoji: '🌍' },
+]
+
 const SELLING_ALLOWED = [
   'Ad management (done-for-you)',
   'Website builds',
@@ -157,28 +171,16 @@ function AnnouncementCard({ item, isArchive }) {
 }
 
 function ChannelCard({ channel }) {
-  const [hovered, setHovered] = useState(false)
   return (
     <a href={channel.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-      <div
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        style={{
-          background: hovered ? 'rgba(255,45,120,0.05)' : 'var(--card)',
-          border: '1px solid ' + (hovered ? 'rgba(255,45,120,0.5)' : 'var(--border)'),
-          borderRadius: 12,
-          padding: '16px 20px',
-          cursor: 'pointer',
-          transition: 'border-color 0.18s, background 0.18s, box-shadow 0.18s',
-          boxShadow: hovered ? '0 0 18px rgba(255,45,120,0.12)' : 'none',
-          height: '100%',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+      <div className="card" style={{ gap: 0, padding: '16px 20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
           <span style={{ fontSize: 16 }}>{channel.emoji}</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: hovered ? 'var(--pink)' : 'var(--cyan)', letterSpacing: '0.05em', transition: 'color 0.18s' }}>#{channel.name}</span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', letterSpacing: '0.05em' }}>#{channel.name}</span>
         </div>
+
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55 }}>{channel.description}</div>
+
         {channel.introFormat && (
           <div style={{ marginTop: 12, background: 'rgba(0,245,228,0.05)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 8, padding: '10px 12px' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Intro format</div>
@@ -190,6 +192,7 @@ function ChannelCard({ channel }) {
             ))}
           </div>
         )}
+
         {channel.sellingServices && (
           <div style={{ marginTop: 12 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -202,11 +205,23 @@ function ChannelCard({ channel }) {
             </div>
           </div>
         )}
+
+        {channel.regionalList && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+            {REGIONAL_CHANNELS.map(r => (
+              <span key={r.name} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 4, padding: '3px 8px' }}>
+                {r.emoji} #{r.name}
+              </span>
+            ))}
+          </div>
+        )}
+
         {channel.note && (
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '5px 10px', marginTop: 10, lineHeight: 1.5 }}>
             {channel.note}
           </div>
         )}
+
         {channel.link && (
           <span
             onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(channel.link.href, '_blank') }}
