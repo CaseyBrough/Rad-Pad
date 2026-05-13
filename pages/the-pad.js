@@ -108,6 +108,7 @@ const CHANNELS = [
         name: 'community-calls',
         emoji: '📹',
         description: 'Call recordings, links, and updates. If you missed a call live, this is where you catch up.',
+        url: 'https://theradpad.slack.com/archives/C0A78EGFV0C',
         link: { label: 'View call log', href: 'https://docs.google.com/spreadsheets/d/15sytr2FPCEHvXFLrEKxlMEgTrH6cBEAjcASq0kzZWb4/edit?usp=sharing' },
       },
     ],
@@ -119,46 +120,55 @@ const CHANNELS = [
         name: 'regional-meetups',
         emoji: '📍',
         description: 'In-person hangs and local connections. Share meetups, city-specific get-togethers, or casual hangs.',
+        url: 'https://theradpad.slack.com/archives/C0A3JCTLDL3',
       },
       {
         name: 'region-canada',
         emoji: '🍁',
         description: 'Canadian members connecting locally.',
+        url: 'https://theradpad.slack.com/archives/region-canada',
       },
       {
         name: 'region-south-east',
         emoji: '🌴',
         description: 'VA, WV, KY, TN, NC, SC, GA, FL, AL, MS, AR, LA',
+        url: 'https://theradpad.slack.com/archives/region-south-east',
       },
       {
         name: 'region-texas',
         emoji: '⭐',
         description: 'TX, OK, NM',
+        url: 'https://theradpad.slack.com/archives/region-texas',
       },
       {
         name: 'region-new-england',
         emoji: '🦞',
         description: 'ME, NH, VT, MA, RI, CT, NY, NJ, PA, DE, MD',
+        url: 'https://theradpad.slack.com/archives/region-new-england',
       },
       {
         name: 'region-west-coast',
         emoji: '🌊',
         description: 'CA, OR, WA, AZ',
+        url: 'https://theradpad.slack.com/archives/region-west-coast',
       },
       {
         name: 'region-midwest',
         emoji: '🌾',
         description: 'OH, MI, IN, IL, WI, MN, IA, MO, ND, SD, NE, KS',
+        url: 'https://theradpad.slack.com/archives/region-midwest',
       },
       {
         name: 'region-mountain-west',
         emoji: '🏔️',
         description: 'MT, NV, UT, CO, WY, ID',
+        url: 'https://theradpad.slack.com/archives/region-mountian',
       },
       {
         name: 'region-world',
         emoji: '🌍',
         description: 'International members outside North America.',
+        url: 'https://theradpad.slack.com/archives/region-world',
       },
     ],
   },
@@ -198,7 +208,6 @@ function AnnouncementCard({ item, isArchive }) {
 
 function ChannelCard({ channel }) {
   const [hovered, setHovered] = useState(false)
-
   return (
     <a href={channel.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
       <div
@@ -219,9 +228,7 @@ function ChannelCard({ channel }) {
           <span style={{ fontSize: 16 }}>{channel.emoji}</span>
           <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: hovered ? 'var(--pink)' : 'var(--cyan)', letterSpacing: '0.05em', transition: 'color 0.18s' }}>#{channel.name}</span>
         </div>
-
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55 }}>{channel.description}</div>
-
         {channel.introFormat && (
           <div style={{ marginTop: 12, background: 'rgba(0,245,228,0.05)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 8, padding: '10px 12px' }}>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Intro format</div>
@@ -233,7 +240,6 @@ function ChannelCard({ channel }) {
             ))}
           </div>
         )}
-
         {channel.sellingServices && (
           <div style={{ marginTop: 12 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
@@ -246,17 +252,15 @@ function ChannelCard({ channel }) {
             </div>
           </div>
         )}
-
         {channel.note && (
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '5px 10px', marginTop: 10, lineHeight: 1.5 }}>
             {channel.note}
           </div>
         )}
-
         {channel.link && (
           <span
             onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(channel.link.href, '_blank') }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', textDecoration: 'none', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
           >
             ↗ {channel.link.label}
           </span>
@@ -270,7 +274,7 @@ export default function ThePad() {
   const [announcements, setAnnouncements] = useState([])
   const [archived, setArchived] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showArchive, setShowArchive] = useState(false)
+  const [showMore, setShowMore] = useState(false)
 
   useEffect(() => {
     async function load() {
@@ -278,14 +282,14 @@ export default function ThePad() {
         .from('announcements')
         .select('*')
         .order('created_at', { ascending: false })
-      const active = (data || []).filter(a => !a.archived)
-      const arch = (data || []).filter(a => a.archived)
-      setAnnouncements(active)
-      setArchived(arch)
+      setAnnouncements((data || []).filter(a => !a.archived))
+      setArchived((data || []).filter(a => a.archived))
       setLoading(false)
     }
     load()
   }, [])
+
+  const oldest = [...announcements.slice(1), ...archived]
 
   return (
     <Layout>
@@ -296,9 +300,7 @@ export default function ThePad() {
       {!loading && announcements.length > 0 && (
         <div style={{ marginBottom: 48 }}>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 16 }}>📌 Bulletin Board</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {announcements.map(a => <AnnouncementCard key={a.id} item={a} isArchive={false} />)}
-          </div>
+          <AnnouncementCard item={announcements[0]} isArchive={false} />
         </div>
       )}
 
@@ -337,13 +339,13 @@ export default function ThePad() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <span
             onClick={() => window.open('GOOGLE_CAL_URL_PLACEHOLDER', '_blank')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', textDecoration: 'none', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
           >
             📅 View Google Calendar
           </span>
           <span
             onClick={() => window.open('https://calendar.google.com/calendar/ical/radpad2026%40gmail.com/public/basic.ics', '_blank')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', textDecoration: 'none', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
           >
             📆 Add iCal Feed
           </span>
@@ -353,17 +355,17 @@ export default function ThePad() {
         </div>
       </div>
 
-      {archived.length > 0 && (
+      {oldest.length > 0 && (
         <div>
           <button
-            onClick={() => setShowArchive(v => !v)}
+            onClick={() => setShowMore(v => !v)}
             style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}
           >
-            {showArchive ? 'Hide' : 'Show'} Announcement Archive ({archived.length})
+            {showMore ? 'Hide' : 'Show'} Previous Announcements ({oldest.length})
           </button>
-          {showArchive && (
+          {showMore && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {archived.map(a => <AnnouncementCard key={a.id} item={a} isArchive={true} />)}
+              {oldest.map(a => <AnnouncementCard key={a.id} item={a} isArchive={true} />)}
             </div>
           )}
         </div>
