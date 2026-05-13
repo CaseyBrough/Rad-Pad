@@ -270,7 +270,7 @@ export default function ThePad() {
       )}
 
       <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>Channel Guide</div>
+        <div style={{ fontFamily: 'var(--font-head)', fontSize: 36, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 6 }}>Channel Guide</div>
         <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 28, lineHeight: 1.6 }}>
           Slack messages disappear after 90 days on our plan — this is the permanent record of how each channel works. Click any channel to open it in Slack.
         </div>
