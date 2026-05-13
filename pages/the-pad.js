@@ -264,7 +264,7 @@ export default function ThePad() {
 
       {!loading && announcements.length > 0 && (
         <div style={{ marginBottom: 48 }}>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 16 }}>📌 Bulletin Board</div>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 36, letterSpacing: '0.04em', color: 'var(--pink)', marginBottom: 16, textShadow: '0 0 40px rgba(255,45,120,0.4), 0 0 80px rgba(255,45,120,0.15)' }}>📌 Bulletin Board</div>
           <AnnouncementCard item={announcements[0]} isArchive={false} />
         </div>
       )}
