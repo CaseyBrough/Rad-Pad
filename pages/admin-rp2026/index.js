@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 
-const SECTIONS = ['Recording', 'Resource', 'Event', 'Link', 'Member', 'Announcement']
+const SECTIONS = ['Recording', 'Resource', 'Event', 'Link', 'Member', 'Access', 'Announcement']
 const CALL_TYPES = ['Community Call', 'Skills Call', 'Theme Call']
 const RES_CATS = ['Templates', 'Guides', 'Scripts', 'Finance']
 const EVENT_TYPES = ['Community Call', 'Skills Call', 'Theme Call']
@@ -38,11 +38,23 @@ export default function Admin() {
   const [announcementText, setAnnouncementText] = useState('')
   const [savingAnnouncement, setSavingAnnouncement] = useState(false)
 
+  // Login Access (authorized emails)
+  const [authorizedEmails, setAuthorizedEmails] = useState([])
+  const [loadingAccess, setLoadingAccess] = useState(false)
+  const [singleEmail, setSingleEmail] = useState('')
+  const [singleName, setSingleName] = useState('')
+  const [savingAccess, setSavingAccess] = useState(false)
+  const [bulkText, setBulkText] = useState('')
+  const [bulkPreview, setBulkPreview] = useState(null)
+  const [bulkSaving, setBulkSaving] = useState(false)
+
   useEffect(() => {
     if (section === 'Member') {
       loadMembers()
     } else if (section === 'Announcement') {
       loadAnnouncements()
+    } else if (section === 'Access') {
+      loadAccess()
     } else {
       setForm(EMPTY[section])
       setEditId(null)
@@ -120,6 +132,67 @@ export default function Admin() {
     await supabase.from('announcements').delete().eq('id', id)
     setSuccess('Deleted.')
     loadAnnouncements()
+  }
+
+  async function loadAccess() {
+    setLoadingAccess(true)
+    const { data } = await supabase.from('authorized_emails').select('*').order('created_at', { ascending: false })
+    setAuthorizedEmails(data || [])
+    setLoadingAccess(false)
+  }
+
+  async function addSingleEmail() {
+    const email = singleEmail.trim().toLowerCase()
+    if (!email) return
+    setSavingAccess(true)
+    const { error } = await supabase.from('authorized_emails').upsert([{ email, name: singleName.trim() || null }], { onConflict: 'email' })
+    setSavingAccess(false)
+    if (error) { setSuccess(`Error: ${error.message}`); return }
+    setSingleEmail('')
+    setSingleName('')
+    setSuccess('Email added.')
+    loadAccess()
+  }
+
+  async function removeEmail(id) {
+    if (!confirm('Remove this email? They will lose access.')) return
+    await supabase.from('authorized_emails').delete().eq('id', id)
+    setSuccess('Removed.')
+    loadAccess()
+  }
+
+  function parseBulkEmails(text) {
+    const emailRe = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+    const seen = new Set()
+    const rows = []
+    for (const line of lines) {
+      const match = line.match(emailRe)
+      if (!match) continue
+      const email = match[0].toLowerCase()
+      if (seen.has(email)) continue
+      seen.add(email)
+      const rest = line.replace(match[0], '').replace(/["',]+/g, ' ').replace(/\s+/g, ' ').trim()
+      rows.push({ email, name: rest || null })
+    }
+    return rows
+  }
+
+  function previewBulk() {
+    const rows = parseBulkEmails(bulkText)
+    setBulkPreview(rows)
+  }
+
+  async function confirmBulkImport() {
+    if (!bulkPreview || bulkPreview.length === 0) return
+    setBulkSaving(true)
+    const { error } = await supabase.from('authorized_emails').upsert(bulkPreview, { onConflict: 'email' })
+    setBulkSaving(false)
+    if (error) { setSuccess(`Error: ${error.message}`); return }
+    setSuccess(`Imported ${bulkPreview.length} email${bulkPreview.length === 1 ? '' : 's'}.`)
+    setBulkText('')
+    setBulkPreview(null)
+    loadAccess()
   }
 
   async function approveMember(id) {
@@ -226,6 +299,7 @@ export default function Admin() {
             <button key={s} className={`filter-tag${section === s ? ' active' : ''}`} onClick={() => setSection(s)}>
               {s === 'Member' ? `Members ${pendingMembers.length > 0 ? `(${pendingMembers.length} pending)` : ''}`
                 : s === 'Link' ? `Links ${linkPendingCount > 0 ? `(${linkPendingCount} pending)` : ''}`
+                : s === 'Access' ? `Login Access (${authorizedEmails.length})`
                 : `${s}s`}
             </button>
           ))}
@@ -385,8 +459,97 @@ export default function Admin() {
           </div>
         )}
 
+        {/* LOGIN ACCESS */}
+        {section === 'Access' && (
+          <div>
+            {success && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: success.startsWith('Error') ? 'var(--pink)' : 'var(--cyan)', marginBottom: 16 }}>{success}</div>}
+            <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24, lineHeight: 1.6 }}>
+              This is just the list of emails allowed to log in — it doesn't touch the public Directory. Add people one at a time, or paste a whole CSV export and bulk-import it.
+            </div>
+
+            <div className="admin-form" style={{ marginBottom: 28 }}>
+              <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.05em', color: 'var(--text)', marginBottom: 16 }}>Add One Email</h2>
+              <div className="form-row">
+                <div className="form-group"><label className="form-label">Email *</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={singleEmail} onChange={e => setSingleEmail(e.target.value)} placeholder="member@email.com" /></div>
+                <div className="form-group"><label className="form-label">Name <span style={{ color: 'var(--muted)', fontWeight: 400 }}>(optional)</span></label><input className="form-input" style={{ fontFamily: 'inherit' }} value={singleName} onChange={e => setSingleName(e.target.value)} placeholder="Jamie Smith" /></div>
+              </div>
+              <button className="submit-btn" style={{ margin: 0, marginTop: 8 }} onClick={addSingleEmail} disabled={savingAccess || !singleEmail.trim()}>
+                {savingAccess ? 'Adding...' : 'Add Email'}
+              </button>
+            </div>
+
+            <div className="admin-form" style={{ marginBottom: 32 }}>
+              <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.05em', color: 'var(--text)', marginBottom: 8 }}>Bulk Import</h2>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14, lineHeight: 1.6 }}>
+                Paste your Slack member export here (or any list with emails in it — one row per line). We'll pull out the emails automatically.
+              </div>
+              <div className="form-group">
+                <textarea
+                  className="form-textarea"
+                  style={{ fontFamily: 'inherit', minHeight: 160 }}
+                  value={bulkText}
+                  onChange={e => { setBulkText(e.target.value); setBulkPreview(null) }}
+                  placeholder="Jamie Smith, jamie@email.com&#10;Alex Rivera, alex@email.com&#10;..."
+                />
+              </div>
+              {!bulkPreview ? (
+                <button className="submit-btn" style={{ margin: 0, marginTop: 8 }} onClick={previewBulk} disabled={!bulkText.trim()}>
+                  Preview Import
+                </button>
+              ) : (
+                <div style={{ marginTop: 12 }}>
+                  {bulkPreview.length === 0 ? (
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)' }}>No email addresses found in that text.</div>
+                  ) : (
+                    <>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', marginBottom: 10 }}>
+                        Found {bulkPreview.length} email{bulkPreview.length === 1 ? '' : 's'} — review below, then confirm.
+                      </div>
+                      <div style={{ maxHeight: 220, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 10, marginBottom: 12 }}>
+                        {bulkPreview.map((r, i) => (
+                          <div key={i} style={{ padding: '8px 14px', borderBottom: i < bulkPreview.length - 1 ? '1px solid var(--border)' : 'none', fontSize: 12, color: 'var(--text)', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                            <span>{r.name || <span style={{ color: 'var(--muted)' }}>(no name)</span>}</span>
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>{r.email}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <button className="submit-btn" style={{ margin: 0 }} onClick={confirmBulkImport} disabled={bulkSaving}>
+                          {bulkSaving ? 'Importing...' : `Import ${bulkPreview.length} Email${bulkPreview.length === 1 ? '' : 's'}`}
+                        </button>
+                        <button onClick={() => setBulkPreview(null)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '11px 20px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+                          Cancel
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>
+              Authorized Emails ({authorizedEmails.length})
+            </div>
+            {loadingAccess ? <div className="loading">Loading...</div> : authorizedEmails.length === 0 ? (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>No one added yet.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {authorizedEmails.map(a => (
+                  <div key={a.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      {a.name && <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{a.name}</div>}
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>{a.email}</div>
+                    </div>
+                    <button onClick={() => removeEmail(a.id)} style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 6, padding: '6px 12px', color: 'var(--pink)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Remove</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* CONTENT FORMS */}
-        {section !== 'Member' && section !== 'Announcement' && (
+        {section !== 'Member' && section !== 'Announcement' && section !== 'Access' && (
           <>
             <div className="admin-form">
               <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.05em', color: 'var(--text)', marginBottom: 20, display: 'flex', alignItems: 'center' }}>
