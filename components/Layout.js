@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { supabase } from '../lib/supabase'
 
 const NAV = [
   {
@@ -35,6 +36,11 @@ const NAV = [
 export default function Layout({ children }) {
   const { pathname } = useRouter()
 
+  async function logout() {
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
+
   return (
     <div className="layout">
       <aside className="sidebar">
@@ -55,9 +61,15 @@ export default function Layout({ children }) {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--muted)', textTransform: 'uppercase' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>
             Referral-Only Community
           </div>
+          <button
+            onClick={logout}
+            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}
+          >
+            Log Out
+          </button>
         </div>
       </aside>
       <main className="main">
