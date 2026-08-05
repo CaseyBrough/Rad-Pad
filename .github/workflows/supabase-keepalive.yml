@@ -1,0 +1,50 @@
+# Keeps our Supabase free-tier project from auto-pausing due to inactivity.
+# Supabase pauses free projects after ~1 week with no activity, which breaks
+# the site until someone manually un-pauses it in the dashboard. This workflow
+# pings the project on a schedule so it always looks "active."
+#
+# Requires two repo secrets (Settings > Secrets and variables > Actions):
+#   SUPABASE_URL       - Project URL (Project Settings > Data API)
+#   SUPABASE_ANON_KEY   - anon/public API key (Project Settings > API Keys)
+#
+# If the ping fails, this job fails and GitHub sends a notification -
+# that means something is actually wrong (wrong secret, project deleted,
+# Supabase outage, etc.), not just "it paused."
+
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # Every 3 days at 09:00 UTC
+    - cron: '0 9 */3 * *'
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::SUPABASE_URL or SUPABASE_ANON_KEY secret is not set."
+            exit 1
+          fi
+
+          http_status=$(curl -s -o /tmp/response.txt -w "%{http_code}" \
+            "${SUPABASE_URL%/}/rest/v1/authorized_emails?select=email&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+
+          echo "HTTP status: $http_status"
+          echo "Response body:"
+          cat /tmp/response.txt
+
+          if [ "$http_status" -lt 200 ] || [ "$http_status" -ge 300 ]; then
+            echo "::error::Supabase keepalive ping failed with HTTP $http_status"
+            exit 1
+          fi
+
+          echo "Supabase project is alive and responding."
