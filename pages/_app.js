@@ -24,33 +24,63 @@ export default function App({ Component, pageProps }) {
     let active = true
     setAuthState('checking')
 
+    // Fail-safe: if anything below hangs for any reason, don't leave the
+    // visitor stuck on "Checking access" forever - send them to login.
+    const timeout = setTimeout(() => {
+      if (active) {
+        setAuthState('denied')
+        router.replace('/login')
+      }
+    }, 8000)
+
     async function check() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) {
+          if (active) {
+            clearTimeout(timeout)
+            setAuthState('denied')
+            router.replace('/login')
+          }
+          return
+        }
+        const email = session.user.email?.toLowerCase()
+        const { data: match } = await supabase.from('authorized_emails').select('email').eq('email', email).maybeSingle()
+        if (!match) {
+          await supabase.auth.signOut()
+          if (active) {
+            clearTimeout(timeout)
+            setAuthState('denied')
+            router.replace('/login')
+          }
+          return
+        }
         if (active) {
+          clearTimeout(timeout)
+          setAuthState('ok')
+        }
+      } catch (e) {
+        if (active) {
+          clearTimeout(timeout)
           setAuthState('denied')
           router.replace('/login')
         }
-        return
       }
-      const email = session.user.email?.toLowerCase()
-      const { data: match } = await supabase.from('authorized_emails').select('email').eq('email', email).maybeSingle()
-      if (!match) {
-        await supabase.auth.signOut()
-        if (active) {
-          setAuthState('denied')
-          router.replace('/login')
-        }
-        return
-      }
-      if (active) setAuthState('ok')
     }
 
     check()
 
-    const { data: listener } = supabase.auth.onAuthStateChange(() => check())
+    // Supabase fires this callback immediately on every subscribe, while
+    // still holding an internal lock - calling supabase.auth.* methods
+    // (like check() does via getSession()) directly inside it can deadlock.
+    // Deferring with setTimeout escapes that synchronous context.
+    const { data: listener } = supabase.auth.onAuthStateChange(() => {
+      setTimeout(() => { if (active) check() }, 0)
+    })
+
     return () => {
       active = false
+      clearTimeout(timeout)
       listener.subscription.unsubscribe()
     }
   }, [router.pathname])
