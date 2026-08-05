@@ -29,7 +29,7 @@ export default function Directory() {
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
-  const [form, setForm] = useState({ name: '', location: '', specialty: '', bio: '', website: '', linkedin: '', photo_url: '' })
+  const [form, setForm] = useState({ name: '', location: '', specialty: '', bio: '', website: '', linkedin: '', instagram: '', photo_url: '' })
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [error, setError] = useState('')
@@ -86,7 +86,7 @@ export default function Directory() {
       if (url && !url.startsWith('http://') && !url.startsWith('https://')) return 'https://' + url
       return url
     }
-    const cleanedForm = { ...form, website: ensureHttps(form.website), linkedin: ensureHttps(form.linkedin) }
+    const cleanedForm = { ...form, website: ensureHttps(form.website), linkedin: ensureHttps(form.linkedin), instagram: ensureHttps(form.instagram) }
     const { error: insertError } = await supabase.from('members').insert([{ ...cleanedForm, photo_url, approved: false }])
     if (insertError) { setError('Submission failed. Try again.'); setSaving(false); return }
     setSaving(false)
@@ -172,7 +172,7 @@ export default function Directory() {
             <input className="form-input" value={form.bio} onChange={e => setField('bio', e.target.value)} placeholder="I make brand films for service businesses in the Southeast." style={{ fontFamily: 'inherit' }} />
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
             <div className="form-group">
               <label className="form-label">Website</label>
               <input className="form-input" value={form.website} onChange={e => setField('website', e.target.value)} placeholder="yoursite.com" style={{ fontFamily: 'inherit' }} />
@@ -180,6 +180,10 @@ export default function Directory() {
             <div className="form-group">
               <label className="form-label">LinkedIn</label>
               <input className="form-input" value={form.linkedin} onChange={e => setField('linkedin', e.target.value)} placeholder="linkedin.com/in/yourname" style={{ fontFamily: 'inherit' }} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Instagram</label>
+              <input className="form-input" value={form.instagram} onChange={e => setField('instagram', e.target.value)} placeholder="instagram.com/yourhandle" style={{ fontFamily: 'inherit' }} />
             </div>
           </div>
 
@@ -223,8 +227,8 @@ export default function Directory() {
                 <span className="tag tag-pink" style={{ alignSelf: 'center' }}>{m.specialty}</span>
               )}
               {m.bio && <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.55 }}>{m.bio}</div>}
-              {(m.website || m.linkedin) && (
-                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 4 }}>
+              {(m.website || m.linkedin || m.instagram) && (
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 4, flexWrap: 'wrap' }}>
                   {m.website && (
                     <a href={m.website} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cyan)', background: 'rgba(0,245,228,0.08)', border: '1px solid rgba(0,245,228,0.22)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
                       Website
@@ -233,6 +237,11 @@ export default function Directory() {
                   {m.linkedin && (
                     <a href={m.linkedin} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.22)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
                       LinkedIn
+                    </a>
+                  )}
+                  {m.instagram && (
+                    <a href={m.instagram} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B47EFF', background: 'rgba(160,100,255,0.1)', border: '1px solid rgba(160,100,255,0.25)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
+                      Instagram
                     </a>
                   )}
                 </div>

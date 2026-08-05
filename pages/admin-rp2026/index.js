@@ -24,6 +24,7 @@ export default function Admin() {
   const [editId, setEditId] = useState(null)
   const [items, setItems] = useState([])
   const [loadingItems, setLoadingItems] = useState(false)
+  const [linkPendingCount, setLinkPendingCount] = useState(0)
   const [pendingMembers, setPendingMembers] = useState([])
   const [approvedMembers, setApprovedMembers] = useState([])
   const [loadingMembers, setLoadingMembers] = useState(false)
@@ -55,7 +56,21 @@ export default function Admin() {
     const orderCol = section === 'Event' ? 'event_date' : 'created_at'
     const { data } = await supabase.from(TABLE[section]).select('*').order(orderCol, { ascending: false })
     setItems(data || [])
+    if (section === 'Link') setLinkPendingCount((data || []).filter(i => !i.approved).length)
     setLoadingItems(false)
+  }
+
+  async function approveLink(id) {
+    await supabase.from('links').update({ approved: true }).eq('id', id)
+    setSuccess('Link approved.')
+    loadItems()
+  }
+
+  async function declineLink(id) {
+    if (!confirm('Decline and delete this suggestion?')) return
+    await supabase.from('links').delete().eq('id', id)
+    setSuccess('Declined.')
+    loadItems()
   }
 
   async function loadMembers() {
@@ -162,7 +177,10 @@ export default function Admin() {
       ;({ error } = await supabase.from(TABLE[section]).update(form).eq('id', editId))
       if (!error) { setEditId(null); setForm(EMPTY[section]); setSuccess('Updated.') }
     } else {
-      ;({ error } = await supabase.from(TABLE[section]).insert([form]))
+      // Links added directly by admin go live immediately — the approval
+      // step only applies to member-submitted suggestions from /links.
+      const payload = section === 'Link' ? { ...form, approved: true } : form
+      ;({ error } = await supabase.from(TABLE[section]).insert([payload]))
       if (!error) { setForm(EMPTY[section]); setSuccess(`${section} added.`) }
     }
     setSaving(false)
@@ -171,6 +189,9 @@ export default function Admin() {
   }
 
   const inp = { fontFamily: 'inherit' }
+
+  const linkPending = section === 'Link' ? items.filter(i => !i.approved) : []
+  const displayedItems = section === 'Link' ? items.filter(i => i.approved) : items
 
   function getItemLabel(item) { return item.title || item.name || '(untitled)' }
   function getItemMeta(item) {
@@ -203,7 +224,9 @@ export default function Admin() {
         <div style={{ display: 'flex', gap: 8, marginBottom: 28, flexWrap: 'wrap' }}>
           {SECTIONS.map(s => (
             <button key={s} className={`filter-tag${section === s ? ' active' : ''}`} onClick={() => setSection(s)}>
-              {s === 'Member' ? `Members ${pendingMembers.length > 0 ? `(${pendingMembers.length} pending)` : ''}` : `${s}s`}
+              {s === 'Member' ? `Members ${pendingMembers.length > 0 ? `(${pendingMembers.length} pending)` : ''}`
+                : s === 'Link' ? `Links ${linkPendingCount > 0 ? `(${linkPendingCount} pending)` : ''}`
+                : `${s}s`}
             </button>
           ))}
         </div>
@@ -307,6 +330,7 @@ export default function Admin() {
                       <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
                         {m.website && <a href={m.website} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', textDecoration: 'none' }}>{m.website}</a>}
                         {m.linkedin && <a href={m.linkedin} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', textDecoration: 'none' }}>LinkedIn</a>}
+                        {m.instagram && <a href={m.instagram} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', textDecoration: 'none' }}>Instagram</a>}
                       </div>
                     </div>
                     <button onClick={() => approveMember(m.id)} style={{ background: 'rgba(0,245,228,0.1)', border: '1px solid rgba(0,245,228,0.3)', borderRadius: 6, padding: '7px 14px', color: 'var(--cyan)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
@@ -335,7 +359,10 @@ export default function Admin() {
                         <div className="form-group"><label className="form-label">Website</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.website || ''} onChange={e => setMemberForm(f => ({ ...f, website: e.target.value }))} /></div>
                       </div>
                       <div className="form-group" style={{ marginBottom: 10 }}><label className="form-label">Bio</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.bio || ''} onChange={e => setMemberForm(f => ({ ...f, bio: e.target.value }))} /></div>
-                      <div className="form-group" style={{ marginBottom: 14 }}><label className="form-label">LinkedIn</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.linkedin || ''} onChange={e => setMemberForm(f => ({ ...f, linkedin: e.target.value }))} /></div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                        <div className="form-group"><label className="form-label">LinkedIn</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.linkedin || ''} onChange={e => setMemberForm(f => ({ ...f, linkedin: e.target.value }))} /></div>
+                        <div className="form-group"><label className="form-label">Instagram</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={memberForm.instagram || ''} onChange={e => setMemberForm(f => ({ ...f, instagram: e.target.value }))} /></div>
+                      </div>
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button onClick={saveMember} disabled={savingMember} style={{ background: 'var(--pink)', border: 'none', borderRadius: 6, padding: '7px 16px', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{savingMember ? 'Saving...' : 'Save'}</button>
                         <button onClick={() => setEditingMember(null)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Cancel</button>
@@ -455,11 +482,38 @@ export default function Admin() {
               {success && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: success.startsWith('Error') ? 'var(--pink)' : 'var(--cyan)', marginTop: 12 }}>{success}</div>}
             </div>
 
+            {section === 'Link' && linkPending.length > 0 && (
+              <div style={{ marginTop: 32 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 12 }}>
+                  Pending Suggestions ({linkPending.length})
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 8 }}>
+                  {linkPending.map(item => (
+                    <div key={item.id} style={{ background: 'var(--card)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 12, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                      <div style={{ fontSize: 20, flexShrink: 0 }}>{item.emoji || '🔗'}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{item.name}</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', marginBottom: 2 }}>{item.category}</div>
+                        {item.description && <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.description}</div>}
+                        {item.url && <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)' }}>{item.url}</a>}
+                      </div>
+                      <button onClick={() => approveLink(item.id)} style={{ background: 'rgba(0,245,228,0.1)', border: '1px solid rgba(0,245,228,0.3)', borderRadius: 6, padding: '7px 14px', color: 'var(--cyan)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                        Approve
+                      </button>
+                      <button onClick={() => declineLink(item.id)} style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 6, padding: '7px 14px', color: 'var(--pink)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                        Decline
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div style={{ marginTop: 32 }}>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 14 }}>Existing {section}s ({items.length})</div>
-              {loadingItems ? <div className="loading">Loading...</div> : items.length === 0 ? <div className="empty">None yet.</div> : (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 14 }}>Existing {section}s ({displayedItems.length})</div>
+              {loadingItems ? <div className="loading">Loading...</div> : displayedItems.length === 0 ? <div className="empty">None yet.</div> : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {items.map(item => (
+                  {displayedItems.map(item => (
                     <div key={item.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 3 }}>{getItemLabel(item)}</div>
