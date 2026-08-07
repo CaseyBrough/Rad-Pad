@@ -46,11 +46,15 @@ export default function Welcome() {
             across its whole height (not only a bottom fade) so the headline
             reads as a proper overlaid page header, with an extra radial
             shadow behind the text itself for legibility over the artwork. */}
-        <div style={{ position: 'relative', width: '100%', height: 'min(62vw, 520px)', minHeight: 320, overflow: 'hidden' }}>
+        <div style={{ position: 'relative', width: '100%', height: 'min(62vw, 580px)', minHeight: 320, overflow: 'hidden' }}>
           <img
             src="/welcome-hero.jpg"
             alt="The Rad Pad"
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            /* Default center-crop (50% 50%) cut off the top of "The" - the
+               sign sits in the upper-middle third of the square source
+               image, so the crop focus needs to sit above center to keep
+               the whole sign in frame. */
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: '50% 32%', display: 'block' }}
           />
           <div style={{
             position: 'absolute', inset: 0,
