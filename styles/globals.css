@@ -598,3 +598,50 @@ nav { flex: 1; padding: 14px 0; }
   letter-spacing: 0.1em;
   padding: 40px 0;
 }
+
+/* ── WELCOME PAGE ── */
+.welcome-video-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  /* Subtle ambient pink glow sitting behind the card - not a hover state,
+     just a soft bloom consistent with the rest of the brand's neon feel. */
+  box-shadow: 0 0 90px rgba(255, 45, 120, 0.22);
+}
+
+.welcome-btn {
+  cursor: pointer;
+  display: block;
+  font-family: var(--font-head);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+  border-radius: 12px;
+  padding: 18px 24px;
+  transition: all 0.2s;
+}
+
+.welcome-btn-slack {
+  background: var(--pink);
+  color: #fff;
+  box-shadow: 0 0 30px var(--pink-glow-soft);
+}
+
+.welcome-btn-slack:hover {
+  box-shadow: 0 0 44px var(--pink-glow);
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.welcome-btn-hub {
+  background: var(--card);
+  border: 1px solid var(--border-hover-cyan);
+  color: var(--cyan);
+}
+
+.welcome-btn-hub:hover {
+  background: var(--card-hover);
+  border-color: var(--cyan);
+  box-shadow: 0 0 34px rgba(0, 245, 228, 0.45);
+  transform: translateY(-2px);
+}

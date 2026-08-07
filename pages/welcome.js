@@ -93,12 +93,7 @@ export default function Welcome() {
             13.3vw lands on ~192px right around a 1440px laptop screen and
             holds there for anything wider. */}
         <div style={{ margin: '40px clamp(24px, 13.3vw, 192px) 36px' }}>
-          <div style={{
-            background: 'var(--card)',
-            border: '1px solid var(--border)',
-            borderRadius: 16,
-            padding: 12,
-          }}>
+          <div className="welcome-video-card">
             <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', borderRadius: 10, overflow: 'hidden' }}>
               <iframe
                 src={VIDEO_EMBED_URL}
@@ -127,39 +122,11 @@ export default function Welcome() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <span
-                onClick={goToSlack}
-                style={{
-                  cursor: 'pointer',
-                  display: 'block',
-                  background: 'var(--pink)',
-                  color: '#fff',
-                  fontFamily: 'var(--font-head)',
-                  fontSize: 18,
-                  letterSpacing: '0.04em',
-                  borderRadius: 12,
-                  padding: '18px 24px',
-                  boxShadow: '0 0 30px var(--pink-glow-soft)',
-                }}
-              >
+              <span onClick={goToSlack} className="welcome-btn welcome-btn-slack">
                 Join the Slack →
               </span>
 
-              <span
-                onClick={goToHub}
-                style={{
-                  cursor: 'pointer',
-                  display: 'block',
-                  background: 'var(--card)',
-                  border: '1px solid var(--border-hover-cyan)',
-                  color: 'var(--cyan)',
-                  fontFamily: 'var(--font-head)',
-                  fontSize: 18,
-                  letterSpacing: '0.04em',
-                  borderRadius: 12,
-                  padding: '18px 24px',
-                }}
-              >
+              <span onClick={goToHub} className="welcome-btn welcome-btn-hub">
                 Go to the Hub →
               </span>
             </div>
