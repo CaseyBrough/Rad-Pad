@@ -86,31 +86,33 @@ export default function Welcome() {
           </div>
         </div>
 
-        {/* ── CONTENT ── */}
-        <div style={{ padding: '40px 24px 100px', position: 'relative' }}>
-          {/* ── VIDEO ── */}
-          {/* Deliberately much wider than the text column below - roughly
-              2.5x the old 640px reading width, capped so it doesn't get silly
-              on ultra-wide monitors, nearly edge-to-edge on typical desktops. */}
-          <div style={{ maxWidth: 1800, width: '97%', margin: '0 auto 36px' }}>
-            <div style={{
-              background: 'var(--card)',
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              padding: 12,
-            }}>
-              <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', borderRadius: 10, overflow: 'hidden' }}>
-                <iframe
-                  src={VIDEO_EMBED_URL}
-                  title="Rad Pad Onboarding"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
-                />
-              </div>
+        {/* ── VIDEO ── */}
+        {/* About 2in (192px, CSS reference pixel = 1/96in) of side margin on
+            desktop. clamp() scales that down on narrow viewports instead of
+            applying a flat 192px, which would eat the whole width on mobile -
+            13.3vw lands on ~192px right around a 1440px laptop screen and
+            holds there for anything wider. */}
+        <div style={{ margin: '40px clamp(24px, 13.3vw, 192px) 36px' }}>
+          <div style={{
+            background: 'var(--card)',
+            border: '1px solid var(--border)',
+            borderRadius: 16,
+            padding: 12,
+          }}>
+            <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', borderRadius: 10, overflow: 'hidden' }}>
+              <iframe
+                src={VIDEO_EMBED_URL}
+                title="Rad Pad Onboarding"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', border: 0 }}
+              />
             </div>
           </div>
+        </div>
 
+        {/* ── CONTENT ── */}
+        <div style={{ padding: '0 24px 100px', position: 'relative' }}>
           {/* ── NEXT STEPS ── */}
           <div style={{ maxWidth: 640, margin: '0 auto', textAlign: 'center' }}>
             <div style={{
