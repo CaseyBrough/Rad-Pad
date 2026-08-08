@@ -339,6 +339,13 @@ export default function MemberMap() {
           {placed.map((m, i) => {
             const dimmed = f && !matchSet.has(i)
             const isActive = activeIdx === i
+            // Pins stay a constant screen size (divide by zoom to cancel the
+            // group's scale) while their positions still spread apart as you
+            // zoom in — that's what actually untangles overlapping same-city
+            // pins, since scaling everything uniformly would keep the same
+            // relative overlap at any zoom level.
+            const inv = 1 / zoom
+            const rBase = (isActive ? 12 : 10.5) * inv
             return (
               <g
                 key={i}
@@ -346,22 +353,22 @@ export default function MemberMap() {
                 onMouseEnter={() => setActiveIdx(i)}
                 onMouseLeave={() => setActiveIdx(null)}
               >
-                <line x1={m.x} y1={m.y + 7} x2={m.stemX} y2={m.stemY} stroke="rgba(216,212,232,0.55)" strokeWidth="1.2" />
-                <circle cx={m.stemX} cy={m.stemY} r="1.6" fill="rgba(216,212,232,0.7)" />
+                <line x1={m.x} y1={m.y + 7 * inv} x2={m.stemX} y2={m.stemY} stroke="rgba(216,212,232,0.55)" strokeWidth={1.2 * inv} />
+                <circle cx={m.stemX} cy={m.stemY} r={1.6 * inv} fill="rgba(216,212,232,0.7)" />
                 <circle
-                  cx={m.x} cy={m.y} r={isActive ? 12 : 10.5}
+                  cx={m.x} cy={m.y} r={rBase}
                   fill={pinFill(m.confidence)}
                   stroke="var(--card)"
-                  strokeWidth="2"
+                  strokeWidth={2 * inv}
                   style={{
                     transition: 'r 120ms ease, filter 120ms ease',
-                    filter: isActive ? `drop-shadow(0 0 8px var(--pink-glow-soft))` : 'none',
+                    filter: isActive ? `drop-shadow(0 0 ${8 * inv}px var(--pink-glow-soft))` : 'none',
                   }}
                 />
                 <text
-                  x={m.x} y={m.y + 0.5}
+                  x={m.x} y={m.y + 0.5 * inv}
                   textAnchor="middle" dominantBaseline="central"
-                  fontFamily="var(--font-mono)" fontWeight="500" fontSize="9.5"
+                  fontFamily="var(--font-mono)" fontWeight="500" fontSize={9.5 * inv}
                   fill="#1a0511"
                   style={{ pointerEvents: 'none' }}
                 >
@@ -370,13 +377,13 @@ export default function MemberMap() {
                 {isActive && (
                   <g style={{ pointerEvents: 'none' }}>
                     <rect
-                      x={m.x - 62} y={m.y - 40} width="124" height="30" rx="6"
+                      x={m.x - 62 * inv} y={m.y - 40 * inv} width={124 * inv} height={30 * inv} rx={6 * inv}
                       fill="#09070D" stroke="var(--border)"
                     />
-                    <text x={m.x} y={m.y - 27} textAnchor="middle" fontFamily="var(--font-body)" fontSize="10.5" fontWeight="500" fill="var(--text)">
+                    <text x={m.x} y={m.y - 27 * inv} textAnchor="middle" fontFamily="var(--font-body)" fontSize={10.5 * inv} fontWeight="500" fill="var(--text)">
                       {m.name}
                     </text>
-                    <text x={m.x} y={m.y - 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8.5" fill="var(--muted)">
+                    <text x={m.x} y={m.y - 15 * inv} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={8.5 * inv} fill="var(--muted)">
                       {m.city}{m.region ? `, ${m.region}` : ''}
                     </text>
                   </g>
