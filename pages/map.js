@@ -1,9 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import Layout from '../components/Layout'
+import { supabase } from '../lib/supabase'
+import { parseLocation } from '../lib/geo'
+import { US_NATION_D, US_STATE_LINES_D, CANADA_D, MEXICO_D } from '../lib/mapPaths'
 
 // Researched from the Slack member export (company sites, indexed bios/profiles) — 2026-08-08.
-// confidence: 'high' = stated explicitly (own site/address) · 'medium' = inferred from search snippets
-const MEMBERS = [
+// Seed data only: any member who submits their own location below takes priority over this.
+const SEED_MEMBERS = [
   { name: "Josh Ferguson", city: "Norman Wells", region: "NT", country: "Canada", confidence: "medium", lat: 65.282, lon: -126.8329 },
   { name: "Brandon Neubauer", city: "New York City", region: "NY", country: "USA", confidence: "high", lat: 40.7128, lon: -74.006 },
   { name: "Ashton Ray Hansen", city: "Minneapolis", region: "MN", country: "USA", confidence: "high", lat: 44.9778, lon: -93.265 },
@@ -71,24 +74,6 @@ function project(lat, lon) {
   return [x, y]
 }
 
-const COAST = [
-  [-166,68.8],[-156,71.2],[-141,70.1],[-130,70.3],[-110,68.2],[-95,68.4],[-85,66.8],
-  [-83,62.5],[-93,62],[-85,58],[-80,55.2],[-78,60],[-70,62],[-65,59.5],[-60,58],
-  [-56,53.2],[-53,48.3],[-56,46.2],[-60,45.1],[-64,44.3],[-67,44.2],[-70,43.1],
-  [-70,42.2],[-74,40.4],[-75,38.6],[-76,37.2],[-78,34.2],[-81,32.1],[-81,29.5],
-  [-80,25.2],[-81,25.5],[-82,27.2],[-83.5,29.7],[-88,30.1],[-90,29.2],[-94,29.5],
-  [-97,26.1],[-97.3,22.2],[-94.5,18.2],[-90.5,19.5],[-90.2,21.3],[-87.5,21.2],
-  [-88,18.2],[-94.2,16.1],[-99.5,16.3],[-105.2,20.1],[-109.5,23.2],[-114.3,28.1],
-  [-117.1,32.1],[-117.2,32.6],[-118.3,33.9],[-120.6,34.5],[-121.9,36.6],[-122.5,37.8],
-  [-124.1,41.8],[-124.4,46.1],[-123.4,48.4],[-125.1,49.4],[-127.5,50.6],[-130.2,54.2],
-  [-133.5,57.5],[-135.4,58.4],[-141,60.1],[-147,60.5],[-152,58.7],[-158,58.8],
-  [-160,59.5],[-163,59.8],[-165.5,60.8],[-166.5,64.5],[-166,68.8],
-]
-const LAND_D = COAST.map(([lon, lat], i) => {
-  const [x, y] = project(lat, lon)
-  return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-}).join(' ') + ' Z'
-
 function initialsOf(name) {
   const parts = name.replace(/\(.*?\)/g, '').trim().split(/\s+/).filter(Boolean)
   if (parts.length === 0) return '?'
@@ -99,7 +84,7 @@ function initialsOf(name) {
 function placeMembers(members) {
   const groups = {}
   members.forEach(m => {
-    const k = `${m.city}|${m.region}|${m.country}`
+    const k = `${Math.round(m.lat * 4)}|${Math.round(m.lon * 4)}`
     ;(groups[k] = groups[k] || []).push(m)
   })
   const placed = []
@@ -120,7 +105,6 @@ function placeMembers(members) {
   return placed
 }
 
-const UNKNOWN_COUNT = 40
 const INTL = [
   { name: 'Joel Whittle', location: 'Australia' },
   { name: 'Robert McGann', location: 'Sydney, Australia' },
@@ -128,10 +112,108 @@ const INTL = [
   { name: 'Zeb Bulthuis', location: 'Netherlands' },
 ]
 
+function clamp(v, min, max) { return Math.min(max, Math.max(min, v)) }
+
 export default function MemberMap() {
   const [search, setSearch] = useState('')
   const [activeIdx, setActiveIdx] = useState(null)
-  const placed = useMemo(() => placeMembers(MEMBERS), [])
+  const [selfReported, setSelfReported] = useState([])
+  const [showForm, setShowForm] = useState(false)
+  const [name, setName] = useState('')
+  const [location, setLocation] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const [formError, setFormError] = useState('')
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const svgRef = useRef(null)
+  const dragRef = useRef(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  useEffect(() => {
+    const el = svgRef.current
+    if (!el) return
+    function onWheel(e) {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const vx = ((e.clientX - rect.left) / rect.width) * W
+      const vy = ((e.clientY - rect.top) / rect.height) * H
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+      setZoom(prevZoom => {
+        const newZoom = clamp(prevZoom * factor, 1, 8)
+        setPan(prevPan => ({
+          x: vx - (newZoom / prevZoom) * (vx - prevPan.x),
+          y: vy - (newZoom / prevZoom) * (vy - prevPan.y),
+        }))
+        return newZoom
+      })
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  function zoomButton(factor) {
+    setZoom(prevZoom => {
+      const newZoom = clamp(prevZoom * factor, 1, 8)
+      setPan(prevPan => ({
+        x: W / 2 - (newZoom / prevZoom) * (W / 2 - prevPan.x),
+        y: H / 2 - (newZoom / prevZoom) * (H / 2 - prevPan.y),
+      }))
+      return newZoom
+    })
+  }
+  function resetView() { setZoom(1); setPan({ x: 0, y: 0 }) }
+
+  function handleMouseDown(e) {
+    dragRef.current = { startX: e.clientX, startY: e.clientY, panX: pan.x, panY: pan.y }
+    setIsDragging(true)
+  }
+  function handleMouseMove(e) {
+    if (!dragRef.current || !svgRef.current) return
+    const rect = svgRef.current.getBoundingClientRect()
+    const dx = ((e.clientX - dragRef.current.startX) / rect.width) * W
+    const dy = ((e.clientY - dragRef.current.startY) / rect.height) * H
+    setPan({ x: dragRef.current.panX + dx, y: dragRef.current.panY + dy })
+  }
+  function handleMouseUp() {
+    dragRef.current = null
+    setIsDragging(false)
+  }
+
+  useEffect(() => {
+    async function load() {
+      const { data } = await supabase
+        .from('members')
+        .select('name, location')
+        .eq('approved', true)
+        .not('location', 'is', null)
+      const resolved = (data || [])
+        .map(m => {
+          const parsed = parseLocation(m.location)
+          if (!parsed) return null
+          return {
+            name: m.name,
+            city: parsed.city,
+            region: parsed.region || '',
+            country: 'USA', // best-effort; parseLocation resolves US+CA regions
+            confidence: 'self',
+            lat: parsed.lat,
+            lon: parsed.lon,
+          }
+        })
+        .filter(Boolean)
+      setSelfReported(resolved)
+    }
+    load()
+  }, [])
+
+  const MEMBERS = useMemo(() => {
+    const selfNames = new Set(selfReported.map(m => m.name.toLowerCase()))
+    const seedFiltered = SEED_MEMBERS.filter(m => !selfNames.has(m.name.toLowerCase()))
+    return [...selfReported, ...seedFiltered]
+  }, [selfReported])
+
+  const placed = useMemo(() => placeMembers(MEMBERS), [MEMBERS])
   const sorted = useMemo(() => [...placed].sort((a, b) => a.name.localeCompare(b.name)), [placed])
 
   const f = search.trim().toLowerCase()
@@ -142,17 +224,88 @@ export default function MemberMap() {
       .map(({ i }) => i)
   )
 
+  const selfCount = MEMBERS.filter(m => m.confidence === 'self').length
   const highCount = MEMBERS.filter(m => m.confidence === 'high').length
   const medCount = MEMBERS.filter(m => m.confidence === 'medium').length
+
+  function pinFill(confidence) {
+    if (confidence === 'self') return 'var(--pink)'
+    if (confidence === 'high') return 'rgba(255,45,120,0.75)'
+    return 'rgba(255,45,120,0.45)'
+  }
+
+  async function submitLocation() {
+    if (!name.trim() || !location.trim()) {
+      setFormError('Name and location are required.')
+      return
+    }
+    setSaving(true)
+    setFormError('')
+    const { error } = await supabase.from('members').insert([{ name: name.trim(), location: location.trim(), approved: false }])
+    if (error) {
+      setFormError('Submission failed. Try again.')
+      setSaving(false)
+      return
+    }
+    setSaving(false)
+    setSubmitted(true)
+  }
 
   return (
     <Layout>
       <div className="section-label">Community</div>
       <div className="section-title">Where The Pad Actually Is</div>
       <p className="section-desc">
-        {placed.length} members mapped from public info (company sites, profiles) — {highCount} stated their
-        city directly, {medCount} inferred from indirect mentions. {UNKNOWN_COUNT} more couldn't be placed yet.
+        {placed.length} members mapped — {selfCount > 0 ? `${selfCount} self-reported, ` : ''}{highCount} sourced from public profiles,
+        {' '}{medCount} inferred. Not on here yet? Add yourself below.
       </p>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
+        {!showForm && !submitted && (
+          <button
+            onClick={() => setShowForm(true)}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'rgba(255,45,120,0.15)', border: '1px solid rgba(255,45,120,0.35)', borderRadius: 8, padding: '10px 18px', color: 'var(--pink)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+            onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 20px rgba(255,45,120,0.35)'}
+            onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
+          >
+            + Add Yourself To The Map
+          </button>
+        )}
+      </div>
+
+      {showForm && !submitted && (
+        <div style={{ background: 'var(--card)', border: '1px solid rgba(255,45,120,0.25)', borderRadius: 14, padding: 24, marginBottom: 28 }}>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.04em', marginBottom: 6 }}>Add Yourself</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>Reviewed before it goes live — usually within 24 hours. This also updates your Directory listing if you have one.</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div className="form-group">
+              <label className="form-label">Full Name *</label>
+              <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Casey O'Farrell" style={{ fontFamily: 'inherit' }} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Location *</label>
+              <input className="form-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="Charleston, SC" style={{ fontFamily: 'inherit' }} />
+            </div>
+          </div>
+          {formError && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', marginBottom: 12 }}>{formError}</div>}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <button className="submit-btn" style={{ margin: 0 }} onClick={submitLocation} disabled={saving}>
+              {saving ? 'Submitting...' : 'Submit for Review'}
+            </button>
+            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '11px 20px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {submitted && (
+        <div style={{ background: 'rgba(0,245,228,0.06)', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 14, padding: '24px 28px', marginBottom: 28, textAlign: 'center' }}>
+          <div style={{ fontSize: 24, marginBottom: 10 }}>📍</div>
+          <div style={{ fontFamily: 'var(--font-head)', fontSize: 18, letterSpacing: '0.04em', marginBottom: 6 }}>You're in the queue</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>Your pin will appear once it's approved.</div>
+        </div>
+      )}
 
       <div style={{
         position: 'relative',
@@ -162,7 +315,15 @@ export default function MemberMap() {
         overflow: 'hidden',
         marginBottom: 18,
       }}>
-        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${W} ${H}`}
+          style={{ width: '100%', height: 'auto', display: 'block', touchAction: 'none', cursor: isDragging ? 'grabbing' : zoom > 1 ? 'grab' : 'default' }}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
           <defs>
             <radialGradient id="mapGlow" cx="30%" cy="20%" r="60%">
               <stop offset="0%" stopColor="rgba(0,245,228,0.10)" />
@@ -170,11 +331,14 @@ export default function MemberMap() {
             </radialGradient>
           </defs>
           <rect x="0" y="0" width={W} height={H} fill="url(#mapGlow)" />
-          <path d={LAND_D} fill="rgba(240,235,248,0.045)" stroke="rgba(0,245,228,0.25)" strokeWidth="1.4" />
+          <g transform={`translate(${pan.x} ${pan.y}) scale(${zoom})`}>
+          <path d={CANADA_D} fill="rgba(240,235,248,0.05)" stroke="rgba(0,245,228,0.2)" strokeWidth={1.1 / zoom} />
+          <path d={MEXICO_D} fill="rgba(240,235,248,0.05)" stroke="rgba(0,245,228,0.2)" strokeWidth={1.1 / zoom} />
+          <path d={US_NATION_D} fill="rgba(240,235,248,0.05)" stroke="rgba(0,245,228,0.28)" strokeWidth={1.3 / zoom} />
+          <path d={US_STATE_LINES_D} fill="none" stroke="rgba(0,245,228,0.16)" strokeWidth={0.6 / zoom} />
           {placed.map((m, i) => {
             const dimmed = f && !matchSet.has(i)
             const isActive = activeIdx === i
-            const bubbleFill = m.confidence === 'high' ? 'var(--pink)' : 'rgba(255,45,120,0.55)'
             return (
               <g
                 key={i}
@@ -186,7 +350,7 @@ export default function MemberMap() {
                 <circle cx={m.stemX} cy={m.stemY} r="1.6" fill="rgba(216,212,232,0.7)" />
                 <circle
                   cx={m.x} cy={m.y} r={isActive ? 12 : 10.5}
-                  fill={bubbleFill}
+                  fill={pinFill(m.confidence)}
                   stroke="var(--card)"
                   strokeWidth="2"
                   style={{
@@ -213,26 +377,64 @@ export default function MemberMap() {
                       {m.name}
                     </text>
                     <text x={m.x} y={m.y - 15} textAnchor="middle" fontFamily="var(--font-mono)" fontSize="8.5" fill="var(--muted)">
-                      {m.city}, {m.region}
+                      {m.city}{m.region ? `, ${m.region}` : ''}
                     </text>
                   </g>
                 )}
               </g>
             )
           })}
+          </g>
         </svg>
+
+        <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[
+            { label: '+', onClick: () => zoomButton(1.4), title: 'Zoom in' },
+            { label: '−', onClick: () => zoomButton(1 / 1.4), title: 'Zoom out' },
+            { label: '⟲', onClick: resetView, title: 'Reset view' },
+          ].map(btn => (
+            <button
+              key={btn.title}
+              onClick={btn.onClick}
+              title={btn.title}
+              style={{
+                width: 28, height: 28, borderRadius: 7,
+                background: 'rgba(9,7,13,0.85)', border: '1px solid var(--border)',
+                color: 'var(--text)', fontSize: 15, lineHeight: 1, cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontFamily: 'var(--font-mono)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--pink)'; e.currentTarget.style.color = 'var(--pink)' }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text)' }}
+            >
+              {btn.label}
+            </button>
+          ))}
+        </div>
+
+        <div style={{
+          position: 'absolute', bottom: 10, left: 12,
+          fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em',
+          color: 'rgba(216,212,232,0.55)', background: 'rgba(9,7,13,0.6)',
+          padding: '4px 8px', borderRadius: 6, pointerEvents: 'none',
+        }}>
+          SCROLL TO ZOOM · DRAG TO PAN
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', marginBottom: 28, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: 'var(--muted)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'var(--pink)', display: 'inline-block' }} />
-          STATED LOCATION
+          SELF-REPORTED
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'rgba(255,45,120,0.55)', display: 'inline-block' }} />
+          <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'rgba(255,45,120,0.75)', display: 'inline-block' }} />
+          STATED (SOURCED)
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'rgba(255,45,120,0.45)', display: 'inline-block' }} />
           INFERRED
         </span>
-        <span style={{ color: 'rgba(216,212,232,0.5)' }}>STYLIZED MAP — NOT TO SCALE</span>
       </div>
 
       <div className="controls">
@@ -260,7 +462,7 @@ export default function MemberMap() {
               >
                 <div style={{
                   flex: '0 0 auto', width: 32, height: 32, borderRadius: '50%',
-                  background: m.confidence === 'high' ? 'var(--pink)' : 'rgba(255,45,120,0.55)',
+                  background: pinFill(m.confidence),
                   color: '#1a0511', fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: 11,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
@@ -268,7 +470,7 @@ export default function MemberMap() {
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--muted)' }}>{m.city}, {m.region}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--muted)' }}>{m.city}{m.region ? `, ${m.region}` : ''}</div>
                 </div>
               </div>
             )
@@ -277,20 +479,10 @@ export default function MemberMap() {
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 10 }}>
-          Not Yet On The Map
+          Outside North America
         </div>
-        <p style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7, maxWidth: 640, marginBottom: 8 }}>
-          {UNKNOWN_COUNT} members don't have a public, stated location I could find — drop your city in{' '}
-          <span
-            onClick={() => window.open('https://theradpad.slack.com/archives/C0A3JCTLDL3', '_blank')}
-            style={{ color: 'var(--cyan)', cursor: 'pointer', textDecoration: 'underline' }}
-          >
-            #regional-meetups
-          </span>{' '}
-          and we'll get you pinned.
-        </p>
         <p style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7, maxWidth: 640 }}>
-          Outside North America (off this map): {INTL.map(i => `${i.name} (${i.location})`).join(' · ')}
+          Off this map since it's North America only: {INTL.map(i => `${i.name} (${i.location})`).join(' · ')}
         </p>
       </div>
     </Layout>
