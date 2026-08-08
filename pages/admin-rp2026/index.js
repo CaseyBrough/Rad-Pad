@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../../lib/supabase'
 
-const SECTIONS = ['Recording', 'Resource', 'Event', 'Link', 'Member', 'Access', 'Announcement']
+const SECTIONS = ['Recording', 'Resource', 'Event', 'Link', 'Member', 'Map', 'Access', 'Announcement']
 const CALL_TYPES = ['Community Call', 'Skills Call', 'Theme Call']
 const RES_CATS = ['Templates', 'Guides', 'Scripts', 'Finance']
 const EVENT_TYPES = ['Community Call', 'Skills Call', 'Theme Call']
@@ -32,6 +32,15 @@ export default function Admin() {
   const [memberForm, setMemberForm] = useState({})
   const [savingMember, setSavingMember] = useState(false)
 
+  // Map pins — separate from Members/Directory on purpose (see project notes):
+  // someone can be on the map without a full Directory profile and vice versa.
+  const [pendingPins, setPendingPins] = useState([])
+  const [approvedPins, setApprovedPins] = useState([])
+  const [loadingPins, setLoadingPins] = useState(false)
+  const [editingPin, setEditingPin] = useState(null)
+  const [pinForm, setPinForm] = useState({})
+  const [savingPin, setSavingPin] = useState(false)
+
   // Announcements
   const [announcements, setAnnouncements] = useState([])
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(false)
@@ -51,6 +60,8 @@ export default function Admin() {
   useEffect(() => {
     if (section === 'Member') {
       loadMembers()
+    } else if (section === 'Map') {
+      loadPins()
     } else if (section === 'Announcement') {
       loadAnnouncements()
     } else if (section === 'Access') {
@@ -92,6 +103,38 @@ export default function Admin() {
     setPendingMembers(pending || [])
     setApprovedMembers(approved || [])
     setLoadingMembers(false)
+  }
+
+  async function loadPins() {
+    setLoadingPins(true)
+    const { data: pending } = await supabase.from('map_pins').select('*').eq('approved', false).order('created_at', { ascending: false })
+    const { data: approved } = await supabase.from('map_pins').select('*').eq('approved', true).order('created_at', { ascending: false })
+    setPendingPins(pending || [])
+    setApprovedPins(approved || [])
+    setLoadingPins(false)
+  }
+
+  async function approvePin(id) {
+    await supabase.from('map_pins').update({ approved: true }).eq('id', id)
+    setSuccess('Added to the map.')
+    loadPins()
+  }
+
+  async function deletePin(id) {
+    if (!confirm('Delete this map pin?')) return
+    await supabase.from('map_pins').delete().eq('id', id)
+    setSuccess('Deleted.')
+    loadPins()
+  }
+
+  async function savePin() {
+    setSavingPin(true)
+    const { id, created_at, ...rest } = pinForm
+    await supabase.from('map_pins').update(rest).eq('id', pinForm.id)
+    setSavingPin(false)
+    setEditingPin(null)
+    setSuccess('Pin updated.')
+    loadPins()
   }
 
   async function loadAnnouncements() {
@@ -298,6 +341,7 @@ export default function Admin() {
           {SECTIONS.map(s => (
             <button key={s} className={`filter-tag${section === s ? ' active' : ''}`} onClick={() => setSection(s)}>
               {s === 'Member' ? `Members ${pendingMembers.length > 0 ? `(${pendingMembers.length} pending)` : ''}`
+                : s === 'Map' ? `Map Pins ${pendingPins.length > 0 ? `(${pendingPins.length} pending)` : ''}`
                 : s === 'Link' ? `Links ${linkPendingCount > 0 ? `(${linkPendingCount} pending)` : ''}`
                 : s === 'Access' ? `Login Access (${authorizedEmails.length})`
                 : `${s}s`}
@@ -459,6 +503,71 @@ export default function Admin() {
           </div>
         )}
 
+        {/* MAP PINS */}
+        {section === 'Map' && (
+          <div>
+            {success && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', marginBottom: 16 }}>{success}</div>}
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>
+              Submissions from the "Add Yourself To The Map" button on /map. Separate from Directory — approving here only adds a pin, it doesn't create or touch a Directory profile.
+            </div>
+
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 12 }}>
+              Pending Approval ({pendingPins.length})
+            </div>
+            {loadingPins ? <div className="loading">Loading...</div> : pendingPins.length === 0 ? (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', marginBottom: 32 }}>No pending submissions.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 36 }}>
+                {pendingPins.map(p => (
+                  <div key={p.id} style={{ background: 'var(--card)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 12, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 2 }}>{p.name}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)' }}>{p.location}</div>
+                    </div>
+                    <button onClick={() => approvePin(p.id)} style={{ background: 'rgba(0,245,228,0.1)', border: '1px solid rgba(0,245,228,0.3)', borderRadius: 6, padding: '7px 14px', color: 'var(--cyan)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                      Approve
+                    </button>
+                    <button onClick={() => deletePin(p.id)} style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 6, padding: '7px 14px', color: 'var(--pink)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>
+                      Decline
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>
+              On The Map ({approvedPins.length})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {approvedPins.map(p => (
+                <div key={p.id}>
+                  {editingPin === p.id ? (
+                    <div style={{ background: 'var(--card)', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 10, padding: '16px 18px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                        <div className="form-group"><label className="form-label">Name</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={pinForm.name || ''} onChange={e => setPinForm(f => ({ ...f, name: e.target.value }))} /></div>
+                        <div className="form-group"><label className="form-label">Location</label><input className="form-input" style={{ fontFamily: 'inherit' }} value={pinForm.location || ''} onChange={e => setPinForm(f => ({ ...f, location: e.target.value }))} /></div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={savePin} disabled={savingPin} style={{ background: 'var(--pink)', border: 'none', borderRadius: 6, padding: '7px 16px', color: '#fff', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{savingPin ? 'Saving...' : 'Save'}</button>
+                        <button onClick={() => setEditingPin(null)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '7px 14px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{p.name}</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)' }}>{p.location}</div>
+                      </div>
+                      <button onClick={() => { setEditingPin(p.id); setPinForm(p) }} style={{ background: 'rgba(0,245,228,0.08)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '6px 12px', color: 'var(--cyan)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Edit</button>
+                      <button onClick={() => deletePin(p.id)} style={{ background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 6, padding: '6px 12px', color: 'var(--pink)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Remove</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* LOGIN ACCESS */}
         {section === 'Access' && (
           <div>
@@ -549,7 +658,7 @@ export default function Admin() {
         )}
 
         {/* CONTENT FORMS */}
-        {section !== 'Member' && section !== 'Announcement' && section !== 'Access' && (
+        {section !== 'Member' && section !== 'Map' && section !== 'Announcement' && section !== 'Access' && (
           <>
             <div className="admin-form">
               <h2 style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.05em', color: 'var(--text)', marginBottom: 20, display: 'flex', alignItems: 'center' }}>

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
-import { parseLocation, REGION_FULL_NAMES } from '../lib/geo'
+import { parseLocation, classifyIntl, REGION_FULL_NAMES } from '../lib/geo'
 import { US_NATION_D, US_STATE_LINES_D, CANADA_D, MEXICO_D } from '../lib/mapPaths'
 
 // Researched from the Slack member export (company sites, indexed bios/profiles) — 2026-08-08.
@@ -162,6 +162,7 @@ export default function MemberMap() {
   const [search, setSearch] = useState('')
   const [activeIdx, setActiveIdx] = useState(null)
   const [selfReported, setSelfReported] = useState([])
+  const [intlSelfReported, setIntlSelfReported] = useState([])
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [location, setLocation] = useState('')
@@ -227,15 +228,15 @@ export default function MemberMap() {
   useEffect(() => {
     async function load() {
       const { data } = await supabase
-        .from('members')
+        .from('map_pins')
         .select('name, location')
         .eq('approved', true)
-        .not('location', 'is', null)
-      const resolved = (data || [])
-        .map(m => {
-          const parsed = parseLocation(m.location)
-          if (!parsed) return null
-          return {
+      const naPins = []
+      const intlPins = []
+      ;(data || []).forEach(m => {
+        const parsed = parseLocation(m.location)
+        if (parsed) {
+          naPins.push({
             name: m.name,
             city: parsed.city,
             region: parsed.region || '',
@@ -243,10 +244,18 @@ export default function MemberMap() {
             confidence: 'self',
             lat: parsed.lat,
             lon: parsed.lon,
-          }
-        })
-        .filter(Boolean)
-      setSelfReported(resolved)
+          })
+          return
+        }
+        const region = classifyIntl(m.location)
+        if (region) {
+          intlPins.push({ name: m.name, location: m.location, region })
+        }
+        // else: couldn't place it on the map or a rail — still lives in the
+        // map_pins admin queue, just not visualized here.
+      })
+      setSelfReported(naPins)
+      setIntlSelfReported(intlPins)
     }
     load()
   }, [])
@@ -256,6 +265,12 @@ export default function MemberMap() {
     const seedFiltered = SEED_MEMBERS.filter(m => !selfNames.has(m.name.toLowerCase()))
     return [...selfReported, ...seedFiltered]
   }, [selfReported])
+
+  const INTL_MERGED = useMemo(() => {
+    const liveNames = new Set(intlSelfReported.map(i => i.name.toLowerCase()))
+    const seedFiltered = INTL.filter(i => !liveNames.has(i.name.toLowerCase()))
+    return [...intlSelfReported, ...seedFiltered]
+  }, [intlSelfReported])
 
   const placed = useMemo(() => placeMembers(MEMBERS), [MEMBERS])
   const sorted = useMemo(() => [...placed].sort((a, b) => a.name.localeCompare(b.name)), [placed])
@@ -285,7 +300,7 @@ export default function MemberMap() {
     }
     setSaving(true)
     setFormError('')
-    const { error } = await supabase.from('members').insert([{ name: name.trim(), location: location.trim(), approved: false }])
+    const { error } = await supabase.from('map_pins').insert([{ name: name.trim(), location: location.trim(), approved: false }])
     if (error) {
       setFormError('Submission failed. Try again.')
       setSaving(false)
@@ -320,7 +335,7 @@ export default function MemberMap() {
       {showForm && !submitted && (
         <div style={{ background: 'var(--card)', border: '1px solid rgba(255,45,120,0.25)', borderRadius: 14, padding: 24, marginBottom: 28 }}>
           <div style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.04em', marginBottom: 6 }}>Add Yourself</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>Reviewed before it goes live — usually within 24 hours. This also updates your Directory listing if you have one.</div>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>Just for the map — separate from your Directory listing. Reviewed before it goes live, usually within 24 hours.</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             <div className="form-group">
               <label className="form-label">Full Name *</label>
@@ -352,7 +367,7 @@ export default function MemberMap() {
       )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', flexWrap: 'wrap', marginBottom: 18 }}>
-        <SideRail label="Oceania" members={INTL.filter(i => i.region === 'oceania')} />
+        <SideRail label="Oceania" members={INTL_MERGED.filter(i => i.region === 'oceania')} />
         <div style={{
           position: 'relative',
           flex: '1 1 260px',
@@ -474,7 +489,7 @@ export default function MemberMap() {
           SCROLL TO ZOOM · DRAG TO PAN
         </div>
         </div>
-        <SideRail label="Europe" members={INTL.filter(i => i.region === 'europe')} />
+        <SideRail label="Europe" members={INTL_MERGED.filter(i => i.region === 'europe')} />
       </div>
 
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', marginBottom: 28, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: 'var(--muted)' }}>
