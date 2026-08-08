@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
-import { parseLocation } from '../lib/geo'
+import { parseLocation, REGION_FULL_NAMES } from '../lib/geo'
 import { US_NATION_D, US_STATE_LINES_D, CANADA_D, MEXICO_D } from '../lib/mapPaths'
 
 // Researched from the Slack member export (company sites, indexed bios/profiles) — 2026-08-08.
@@ -106,13 +106,57 @@ function placeMembers(members) {
 }
 
 const INTL = [
-  { name: 'Joel Whittle', location: 'Australia' },
-  { name: 'Robert McGann', location: 'Sydney, Australia' },
-  { name: 'Karl Somers', location: 'County Meath, Ireland' },
-  { name: 'Zeb Bulthuis', location: 'Netherlands' },
+  { name: 'Joel Whittle', location: 'Australia', region: 'oceania' },
+  { name: 'Robert McGann', location: 'Sydney, Australia', region: 'oceania' },
+  { name: 'Karl Somers', location: 'County Meath, Ireland', region: 'europe' },
+  { name: 'Zeb Bulthuis', location: 'Netherlands', region: 'europe' },
 ]
 
 function clamp(v, min, max) { return Math.min(max, Math.max(min, v)) }
+
+// Search matches name, city, state/province (either "TX" or "Texas"), and country.
+function matchesQuery(m, f) {
+  if (!f) return true
+  const regionFull = REGION_FULL_NAMES[(m.region || '').toUpperCase()]
+  const hay = [m.name, m.city, m.region, m.country, regionFull].filter(Boolean).join(' ').toLowerCase()
+  return hay.includes(f)
+}
+
+// A simple "off-map" rail for the handful of members outside North America —
+// not a world map, just a labeled strip of initials bubbles to the side.
+function SideRail({ label, members }) {
+  if (members.length === 0) return null
+  return (
+    <div style={{
+      flex: '0 0 74px',
+      background: 'var(--card)',
+      border: '1px solid var(--border)',
+      borderRadius: 14,
+      padding: '12px 6px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 12,
+    }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cyan)', textAlign: 'center', lineHeight: 1.3 }}>
+        {label}
+      </div>
+      {members.map(m => (
+        <div key={m.name} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textAlign: 'center' }} title={m.location}>
+          <div style={{
+            width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
+            background: 'rgba(0,245,228,0.55)', color: '#04201d',
+            fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 9.5,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {initialsOf(m.name)}
+          </div>
+          <div style={{ fontSize: 8.5, color: 'var(--muted)', lineHeight: 1.25 }}>{m.name.split(' ')[0]}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function MemberMap() {
   const [search, setSearch] = useState('')
@@ -220,7 +264,7 @@ export default function MemberMap() {
   const matchSet = new Set(
     placed
       .map((m, i) => ({ m, i }))
-      .filter(({ m }) => !f || m.name.toLowerCase().includes(f) || m.city.toLowerCase().includes(f) || m.region.toLowerCase().includes(f))
+      .filter(({ m }) => matchesQuery(m, f))
       .map(({ i }) => i)
   )
 
@@ -307,14 +351,16 @@ export default function MemberMap() {
         </div>
       )}
 
-      <div style={{
-        position: 'relative',
-        background: 'var(--card)',
-        border: '1px solid var(--border)',
-        borderRadius: 14,
-        overflow: 'hidden',
-        marginBottom: 18,
-      }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', flexWrap: 'wrap', marginBottom: 18 }}>
+        <SideRail label="Oceania" members={INTL.filter(i => i.region === 'oceania')} />
+        <div style={{
+          position: 'relative',
+          flex: '1 1 260px',
+          background: 'var(--card)',
+          border: '1px solid var(--border)',
+          borderRadius: 14,
+          overflow: 'hidden',
+        }}>
         <svg
           ref={svgRef}
           viewBox={`0 0 ${W} ${H}`}
@@ -427,6 +473,8 @@ export default function MemberMap() {
         }}>
           SCROLL TO ZOOM · DRAG TO PAN
         </div>
+        </div>
+        <SideRail label="Europe" members={INTL.filter(i => i.region === 'europe')} />
       </div>
 
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', marginBottom: 28, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: 'var(--muted)' }}>
@@ -448,7 +496,7 @@ export default function MemberMap() {
         <input
           className="search-input"
           type="text"
-          placeholder="Search name or city…"
+          placeholder="Search name, city, or state…"
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
@@ -456,7 +504,7 @@ export default function MemberMap() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 10, marginBottom: 40 }}>
         {sorted
-          .filter(m => !f || m.name.toLowerCase().includes(f) || m.city.toLowerCase().includes(f) || m.region.toLowerCase().includes(f))
+          .filter(m => matchesQuery(m, f))
           .map((m) => {
             const realIdx = placed.indexOf(m)
             return (
@@ -482,15 +530,6 @@ export default function MemberMap() {
               </div>
             )
           })}
-      </div>
-
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 20 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 10 }}>
-          Outside North America
-        </div>
-        <p style={{ fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7, maxWidth: 640 }}>
-          Off this map since it's North America only: {INTL.map(i => `${i.name} (${i.location})`).join(' · ')}
-        </p>
       </div>
     </Layout>
   )
