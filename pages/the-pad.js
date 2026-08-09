@@ -14,12 +14,6 @@ const CHANNELS = [
         link: { label: 'Open Member Hub', href: 'https://rad-pad.vercel.app' },
       },
       {
-        name: 'start-here',
-        emoji: '📌',
-        description: 'New? Start here. Check the pins tab for important information and links including the Member Hub.',
-        url: 'https://theradpad.slack.com/archives/C0A394HH11D',
-      },
-      {
         name: 'introductions',
         emoji: '👋',
         description: "New here? Drop a quick intro so we know who you are and what you're building.",
@@ -93,11 +87,10 @@ const CHANNELS = [
         sellingServices: true,
       },
       {
-        name: 'hosting',
-        emoji: '🎙️',
-        description: 'Want to host a community call? Sign up here and get on the schedule.',
-        url: 'https://theradpad.slack.com/archives/C0A9Z5N8VMH',
-        link: { label: 'Grab a hosting slot', href: 'https://calendly.com/radpad2026/2hrs?month=2026-05' },
+        name: 'referrals',
+        emoji: '🤝',
+        description: "We've opened the community up for referrals. We want people like you — who show up and provide just as much value as they're able to take home.",
+        url: 'https://theradpad.slack.com/archives/C0BKFB8NJSD',
       },
     ],
   },
