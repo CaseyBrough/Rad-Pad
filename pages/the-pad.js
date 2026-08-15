@@ -306,9 +306,7 @@ export default function ThePad() {
       )}
 
       <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-          Refer Someone
-        </div>
+        <div style={{ fontFamily: 'var(--font-head)', fontSize: 36, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 16 }}>Refer Someone</div>
         <ReferralCard />
       </div>
 
