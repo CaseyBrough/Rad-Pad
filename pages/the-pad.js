@@ -263,6 +263,23 @@ export default function ThePad() {
       )}
 
       <div style={{ marginBottom: 48 }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+          Refer Someone
+        </div>
+        <div className="card" style={{ padding: '20px 24px' }}>
+          <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 14 }}>
+            Know someone who'd be a great fit? Send them here.
+          </div>
+          <span
+            onClick={() => window.open('https://form.jotform.com/262156045622048', '_blank')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--pink)', background: 'rgba(255,45,120,0.07)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
+          >
+            ↗ Refer a New Member
+          </span>
+        </div>
+      </div>
+
+      <div style={{ marginBottom: 48 }}>
         <div style={{ fontFamily: 'var(--font-head)', fontSize: 36, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 6 }}>Channel Guide</div>
         <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 28, lineHeight: 1.6 }}>
           Slack messages disappear after 90 days on our plan — this is the permanent record of how each channel works. Click any channel to open it in Slack.
