@@ -120,6 +120,8 @@ const CHANNELS = [
   },
 ]
 
+const REFERRAL_URL = 'https://form.jotform.com/262156045622048'
+
 const REGIONAL_CHANNELS = [
   { name: 'region-canada', emoji: '🍁' },
   { name: 'region-south-east', emoji: '🌴' },
@@ -159,6 +161,47 @@ function AnnouncementCard({ item, isArchive }) {
     }}>
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: isArchive ? 'var(--muted)' : 'var(--pink)', marginBottom: 8 }}>{formatted}</div>
       <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{item.message}</div>
+    </div>
+  )
+}
+
+function ReferralCard() {
+  const [copied, setCopied] = useState(false)
+
+  function copyLink() {
+    navigator.clipboard.writeText(REFERRAL_URL)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="card" style={{ padding: '20px 24px' }}>
+      <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 6 }}>
+        Know someone who'd be a great fit? Send them this link.
+      </div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', letterSpacing: '0.04em', marginBottom: 14 }}>
+        This form is for the person joining to fill out — not you.
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <span
+          onClick={copyLink}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10,
+            color: copied ? 'var(--cyan)' : 'var(--muted)',
+            background: copied ? 'rgba(0,245,228,0.07)' : 'rgba(255,255,255,0.04)',
+            border: '1px solid ' + (copied ? 'rgba(0,245,228,0.2)' : 'var(--border)'),
+            borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
+          }}
+        >
+          {copied ? '✓ Copied' : '📋 Copy Link'}
+        </span>
+        <span
+          onClick={() => window.open(REFERRAL_URL, '_blank')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--pink)', background: 'rgba(255,45,120,0.07)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
+        >
+          ↗ Refer a New Member
+        </span>
+      </div>
     </div>
   )
 }
@@ -266,17 +309,7 @@ export default function ThePad() {
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
           Refer Someone
         </div>
-        <div className="card" style={{ padding: '20px 24px' }}>
-          <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 14 }}>
-            Know someone who'd be a great fit? Send them here.
-          </div>
-          <span
-            onClick={() => window.open('https://form.jotform.com/262156045622048', '_blank')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--pink)', background: 'rgba(255,45,120,0.07)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
-          >
-            ↗ Refer a New Member
-          </span>
-        </div>
+        <ReferralCard />
       </div>
 
       <div style={{ marginBottom: 48 }}>
