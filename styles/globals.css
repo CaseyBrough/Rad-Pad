@@ -47,7 +47,8 @@ body {
   flex-direction: column;
   position: fixed;
   top: 0; left: 0;
-  z-index: 100;
+  z-index: 200;
+  transition: transform 0.25s ease;
 }
 
 .main {
@@ -55,6 +56,51 @@ body {
   flex: 1;
   padding: 52px 52px 100px;
   max-width: 1100px;
+}
+
+/* ── MOBILE NAV (topbar + slide-in drawer) ── */
+/* Hidden on desktop; the responsive block below reveals these below
+   768px, since the sidebar itself becomes a hidden drawer there. */
+.mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 56px;
+  background: #09070D;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 14px;
+  padding: 0 16px;
+  z-index: 150;
+}
+
+.mobile-menu-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.mobile-topbar-logo {
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--pink);
+  text-shadow: 0 0 16px var(--pink-glow);
+  text-decoration: none;
+}
+
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 150;
 }
 
 /* ── LOGO ── */
@@ -584,8 +630,13 @@ nav { flex: 1; padding: 14px 0; }
 
 /* ── RESPONSIVE ── */
 @media (max-width: 768px) {
-  .sidebar { display: none; }
-  .main { margin-left: 0; padding: 28px 20px 80px; }
+  .mobile-topbar { display: flex; }
+  .sidebar {
+    transform: translateX(-100%);
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .main { margin-left: 0; padding: 76px 20px 80px; }
   .section-title { font-size: 38px; }
   .form-row { grid-template-columns: 1fr; }
 }

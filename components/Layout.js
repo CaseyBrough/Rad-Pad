@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
@@ -39,6 +40,14 @@ const NAV = [
 
 export default function Layout({ children }) {
   const { pathname } = useRouter()
+  const [mobileOpen, setMobileOpen] = useState(false)
+
+  // Below the 768px breakpoint the sidebar becomes a slide-in drawer -
+  // close it automatically on every navigation so it doesn't stay open
+  // over the new page.
+  useEffect(() => {
+    setMobileOpen(false)
+  }, [pathname])
 
   async function logout() {
     await supabase.auth.signOut()
@@ -47,7 +56,28 @@ export default function Layout({ children }) {
 
   return (
     <div className="layout">
-      <aside className="sidebar">
+      {/* Mobile-only top bar - hidden on desktop via CSS, this is the
+          member's only way to open the nav once the sidebar collapses
+          below 768px. */}
+      <div className="mobile-topbar">
+        <button
+          className="mobile-menu-btn"
+          onClick={() => setMobileOpen(v => !v)}
+          aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileOpen}
+        >
+          {mobileOpen ? (
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          ) : (
+            <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          )}
+        </button>
+        <Link href="/" className="mobile-topbar-logo">The Rad Pad</Link>
+      </div>
+
+      {mobileOpen && <div className="mobile-backdrop" onClick={() => setMobileOpen(false)} />}
+
+      <aside className={`sidebar${mobileOpen ? ' mobile-open' : ''}`}>
         <div className="logo-wrap">
           <Link href="/" className="logo">The Rad Pad</Link>
           <span className="logo-sub">Members Hub</span>
