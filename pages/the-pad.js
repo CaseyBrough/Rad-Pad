@@ -11,7 +11,7 @@ const CHANNELS = [
         emoji: '📡',
         description: 'Everything happening across The Rad Pad in one place. Big conversations, cross-channel moments, and things worth the whole community seeing.',
         url: 'https://theradpad.slack.com/archives/C0A394HH11D',
-        link: { label: 'Open Member Hub', href: 'https://rad-pad.vercel.app' },
+        link: { label: 'Open Member Hub', href: 'https://theradpad.org' },
       },
       {
         name: 'introductions',
