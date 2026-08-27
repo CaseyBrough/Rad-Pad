@@ -16,6 +16,27 @@ const EMPTY = {
 
 const TABLE = { Recording: 'recordings', Resource: 'resources', Event: 'events', Link: 'links' }
 
+// Case-insensitive "does this row match the search box" check across
+// whichever fields matter for that list — pass only the fields you want
+// searchable (undefined/null ones are dropped automatically).
+function matchesSearch(query, ...fields) {
+  const q = query.trim().toLowerCase()
+  if (!q) return true
+  return fields.filter(Boolean).join(' ').toLowerCase().includes(q)
+}
+
+const searchInputStyle = {
+  fontFamily: 'inherit',
+  width: '100%',
+  background: 'var(--card)',
+  border: '1px solid var(--border)',
+  borderRadius: 8,
+  padding: '9px 14px',
+  color: 'var(--text)',
+  fontSize: 13,
+  marginBottom: 14,
+}
+
 export default function Admin() {
   const [section, setSection] = useState('Recording')
   const [saving, setSaving] = useState(false)
@@ -31,6 +52,7 @@ export default function Admin() {
   const [editingMember, setEditingMember] = useState(null)
   const [memberForm, setMemberForm] = useState({})
   const [savingMember, setSavingMember] = useState(false)
+  const [memberSearch, setMemberSearch] = useState('')
 
   // Map pins — separate from Members/Directory on purpose (see project notes):
   // someone can be on the map without a full Directory profile and vice versa.
@@ -40,6 +62,7 @@ export default function Admin() {
   const [editingPin, setEditingPin] = useState(null)
   const [pinForm, setPinForm] = useState({})
   const [savingPin, setSavingPin] = useState(false)
+  const [pinSearch, setPinSearch] = useState('')
 
   // Announcements
   const [announcements, setAnnouncements] = useState([])
@@ -56,6 +79,7 @@ export default function Admin() {
   const [bulkText, setBulkText] = useState('')
   const [bulkPreview, setBulkPreview] = useState(null)
   const [bulkSaving, setBulkSaving] = useState(false)
+  const [accessSearch, setAccessSearch] = useState('')
 
   useEffect(() => {
     if (section === 'Member') {
@@ -309,6 +333,10 @@ export default function Admin() {
   const linkPending = section === 'Link' ? items.filter(i => !i.approved) : []
   const displayedItems = section === 'Link' ? items.filter(i => i.approved) : items
 
+  const filteredMembers = approvedMembers.filter(m => matchesSearch(memberSearch, m.name, m.location, m.specialty))
+  const filteredPins = approvedPins.filter(p => matchesSearch(pinSearch, p.name, p.location))
+  const filteredEmails = authorizedEmails.filter(a => matchesSearch(accessSearch, a.name, a.email))
+
   function getItemLabel(item) { return item.title || item.name || '(untitled)' }
   function getItemMeta(item) {
     if (section === 'Recording') {
@@ -463,10 +491,22 @@ export default function Admin() {
             )}
 
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>
-              Approved Members ({approvedMembers.length})
+              Approved Members ({memberSearch.trim() ? `${filteredMembers.length} of ${approvedMembers.length}` : approvedMembers.length})
             </div>
+            {approvedMembers.length > 5 && (
+              <input
+                type="text"
+                placeholder="Search by name, location, or specialty…"
+                style={searchInputStyle}
+                value={memberSearch}
+                onChange={e => setMemberSearch(e.target.value)}
+              />
+            )}
+            {memberSearch.trim() && filteredMembers.length === 0 ? (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>No matches.</div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {approvedMembers.map(m => (
+              {filteredMembers.map(m => (
                 <div key={m.id}>
                   {editingMember === m.id ? (
                     <div style={{ background: 'var(--card)', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 10, padding: '16px 18px' }}>
@@ -500,6 +540,7 @@ export default function Admin() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
@@ -536,10 +577,22 @@ export default function Admin() {
             )}
 
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>
-              On The Map ({approvedPins.length})
+              On The Map ({pinSearch.trim() ? `${filteredPins.length} of ${approvedPins.length}` : approvedPins.length})
             </div>
+            {approvedPins.length > 5 && (
+              <input
+                type="text"
+                placeholder="Search by name or location…"
+                style={searchInputStyle}
+                value={pinSearch}
+                onChange={e => setPinSearch(e.target.value)}
+              />
+            )}
+            {pinSearch.trim() && filteredPins.length === 0 ? (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>No matches.</div>
+            ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {approvedPins.map(p => (
+              {filteredPins.map(p => (
                 <div key={p.id}>
                   {editingPin === p.id ? (
                     <div style={{ background: 'var(--card)', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 10, padding: '16px 18px' }}>
@@ -565,6 +618,7 @@ export default function Admin() {
                 </div>
               ))}
             </div>
+            )}
           </div>
         )}
 
@@ -637,13 +691,24 @@ export default function Admin() {
             </div>
 
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 12 }}>
-              Authorized Emails ({authorizedEmails.length})
+              Authorized Emails ({accessSearch.trim() ? `${filteredEmails.length} of ${authorizedEmails.length}` : authorizedEmails.length})
             </div>
+            {authorizedEmails.length > 5 && (
+              <input
+                type="text"
+                placeholder="Search by name or email…"
+                style={searchInputStyle}
+                value={accessSearch}
+                onChange={e => setAccessSearch(e.target.value)}
+              />
+            )}
             {loadingAccess ? <div className="loading">Loading...</div> : authorizedEmails.length === 0 ? (
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>No one added yet.</div>
+            ) : accessSearch.trim() && filteredEmails.length === 0 ? (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>No matches.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {authorizedEmails.map(a => (
+                {filteredEmails.map(a => (
                   <div key={a.id} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       {a.name && <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>{a.name}</div>}
