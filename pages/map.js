@@ -25,6 +25,18 @@ function initialsOf(name) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
 }
 
+// Groups members who round to the same map spot and records each one's
+// slot in that cluster (baseX/baseY = the true projected city position,
+// shared by the whole group; groupIndex/groupSize = this member's slot in
+// the decluttering fan). The actual pixel offset for that fan is computed
+// at render time, in screen space — see the "inv" comment where it's used.
+// It used to be baked in here as fixed SVG-space units, which meant the
+// offset got magnified by the zoom transform along with everything else:
+// zooming in on a cluster of people who all typed the identical city (e.g.
+// three "Orlando, FL" pins) would fan them out across a genuinely large
+// real-world distance, since a spread of just 11-26 of these map units is
+// on the order of a hundred-plus real miles — they'd look like they were
+// scattered across the state instead of stacked in one spot.
 function placeMembers(members) {
   const groups = {}
   members.forEach(m => {
@@ -36,14 +48,7 @@ function placeMembers(members) {
     const [bx, by] = project(group[0].lat, group[0].lon)
     const n = group.length
     group.forEach((m, i) => {
-      let ox = 0, oy = 0
-      if (n > 1) {
-        const spread = Math.min(11 + n * 1.2, 26)
-        const angle = (i / n) * Math.PI * 2 - Math.PI / 2
-        ox = Math.cos(angle) * spread
-        oy = Math.sin(angle) * spread * 0.6
-      }
-      placed.push({ ...m, x: bx + ox, y: by + oy - 14, stemX: bx + ox, stemY: by + oy })
+      placed.push({ ...m, baseX: bx, baseY: by, groupIndex: i, groupSize: n })
     })
   })
   return placed
@@ -330,12 +335,22 @@ export default function MemberMap() {
             const dimmed = f && !matchSet.has(i)
             const isActive = activeIdx === i
             // Pins stay a constant screen size (divide by zoom to cancel the
-            // group's scale) while their positions still spread apart as you
-            // zoom in — that's what actually untangles overlapping same-city
-            // pins, since scaling everything uniformly would keep the same
-            // relative overlap at any zoom level.
+            // group's scale). The same-city fan spread below gets the same
+            // treatment, and for the same reason: it's a decluttering nudge
+            // measured in screen pixels, not a real offset in map-projection
+            // space, so it needs to stay a small constant number of pixels
+            // at every zoom level rather than growing into what reads as
+            // real geographic distance once the group's scale magnifies it.
             const inv = 1 / zoom
             const rBase = (isActive ? 12 : 10.5) * inv
+            const spread = m.groupSize > 1 ? Math.min(11 + m.groupSize * 1.2, 26) * inv : 0
+            const angle = (m.groupIndex / m.groupSize) * Math.PI * 2 - Math.PI / 2
+            const ox = Math.cos(angle) * spread
+            const oy = Math.sin(angle) * spread * 0.6
+            const x = m.baseX + ox
+            const y = m.baseY + oy - 14 * inv
+            const stemX = m.baseX + ox
+            const stemY = m.baseY + oy
             return (
               <g
                 key={i}
@@ -343,10 +358,10 @@ export default function MemberMap() {
                 onMouseEnter={() => setActiveIdx(i)}
                 onMouseLeave={() => setActiveIdx(null)}
               >
-                <line x1={m.x} y1={m.y + 7 * inv} x2={m.stemX} y2={m.stemY} stroke="rgba(216,212,232,0.55)" strokeWidth={1.2 * inv} />
-                <circle cx={m.stemX} cy={m.stemY} r={1.6 * inv} fill="rgba(216,212,232,0.7)" />
+                <line x1={x} y1={y + 7 * inv} x2={stemX} y2={stemY} stroke="rgba(216,212,232,0.55)" strokeWidth={1.2 * inv} />
+                <circle cx={stemX} cy={stemY} r={1.6 * inv} fill="rgba(216,212,232,0.7)" />
                 <circle
-                  cx={m.x} cy={m.y} r={rBase}
+                  cx={x} cy={y} r={rBase}
                   fill={pinFill(m.confidence)}
                   stroke="var(--card)"
                   strokeWidth={2 * inv}
@@ -356,7 +371,7 @@ export default function MemberMap() {
                   }}
                 />
                 <text
-                  x={m.x} y={m.y + 0.5 * inv}
+                  x={x} y={y + 0.5 * inv}
                   textAnchor="middle" dominantBaseline="central"
                   fontFamily="var(--font-mono)" fontWeight="500" fontSize={9.5 * inv}
                   fill="#1a0511"
@@ -367,13 +382,13 @@ export default function MemberMap() {
                 {isActive && (
                   <g style={{ pointerEvents: 'none' }}>
                     <rect
-                      x={m.x - 62 * inv} y={m.y - 40 * inv} width={124 * inv} height={30 * inv} rx={6 * inv}
+                      x={x - 62 * inv} y={y - 40 * inv} width={124 * inv} height={30 * inv} rx={6 * inv}
                       fill="#09070D" stroke="var(--border)"
                     />
-                    <text x={m.x} y={m.y - 27 * inv} textAnchor="middle" fontFamily="var(--font-body)" fontSize={10.5 * inv} fontWeight="500" fill="var(--text)">
+                    <text x={x} y={y - 27 * inv} textAnchor="middle" fontFamily="var(--font-body)" fontSize={10.5 * inv} fontWeight="500" fill="var(--text)">
                       {m.name}
                     </text>
-                    <text x={m.x} y={m.y - 15 * inv} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={8.5 * inv} fill="var(--muted)">
+                    <text x={x} y={y - 15 * inv} textAnchor="middle" fontFamily="var(--font-mono)" fontSize={8.5 * inv} fill="var(--muted)">
                       {m.city}{m.region ? `, ${m.region}` : ''}
                     </text>
                   </g>
