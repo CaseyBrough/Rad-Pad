@@ -41,6 +41,18 @@ const CHANNELS = [
     ],
   },
   {
+    group: 'Rad Women',
+    items: [
+      {
+        name: 'rad-women',
+        emoji: '🩵',
+        description: "A space for the women running video businesses in The Rad Pad — same community, just a corner that's ours. Talk through what hits differently as a woman in this industry, celebrate wins big and small, and get real about the stuff we don't always say out loud.",
+        url: 'https://theradpad.slack.com/archives/C0BSVE12N3C',
+        note: 'Private — ask in #general or reach out to Casey or Rebecca Hormozi to be added.',
+      },
+    ],
+  },
+  {
     group: 'Work & Craft',
     items: [
       {
