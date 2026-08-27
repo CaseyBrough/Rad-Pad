@@ -1,70 +1,14 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
-import { parseLocation, classifyIntl, REGION_FULL_NAMES } from '../lib/geo'
-import { US_NATION_D, US_STATE_LINES_D, CANADA_D, MEXICO_D } from '../lib/mapPaths'
+import { parseLocation, classifyIntl, REGION_FULL_NAMES, CA_PROVINCE_CODES } from '../lib/geo'
+import { US_NATION_D, US_STATE_LINES_D, CANADA_D, CANADA_PROVINCE_LINES_D, MEXICO_D } from '../lib/mapPaths'
 
-// Researched from the Slack member export (company sites, indexed bios/profiles) — 2026-08-08.
-// Seed data only: any member who submits their own location below takes priority over this.
-const SEED_MEMBERS = [
-  { name: "Josh Ferguson", city: "Norman Wells", region: "NT", country: "Canada", confidence: "medium", lat: 65.282, lon: -126.8329 },
-  { name: "Brandon Neubauer", city: "New York City", region: "NY", country: "USA", confidence: "high", lat: 40.7128, lon: -74.006 },
-  { name: "Ashton Ray Hansen", city: "Minneapolis", region: "MN", country: "USA", confidence: "high", lat: 44.9778, lon: -93.265 },
-  { name: "Bryan Kirkpatrick", city: "San Luis Obispo", region: "CA", country: "USA", confidence: "medium", lat: 35.2828, lon: -120.6596 },
-  { name: "Jordan Turner", city: "Houston", region: "TX", country: "USA", confidence: "high", lat: 29.7604, lon: -95.3698 },
-  { name: "Corey Dostal", city: "Missoula", region: "MT", country: "USA", confidence: "high", lat: 46.8721, lon: -113.994 },
-  { name: "Bryce Root", city: "Santa Cruz", region: "CA", country: "USA", confidence: "high", lat: 36.9741, lon: -122.0308 },
-  { name: "David Glessner", city: "Denver", region: "CO", country: "USA", confidence: "high", lat: 39.7392, lon: -104.9903 },
-  { name: "Tamma Phillips", city: "Brick", region: "NJ", country: "USA", confidence: "high", lat: 40.0583, lon: -74.1102 },
-  { name: "Mattin Peikari", city: "Falls Church", region: "VA", country: "USA", confidence: "high", lat: 38.8823, lon: -77.1711 },
-  { name: "Daniel Ketchelos", city: "Sioux Falls", region: "SD", country: "USA", confidence: "high", lat: 43.5446, lon: -96.7311 },
-  { name: "Matthieu Ionesco", city: "Houston", region: "TX", country: "USA", confidence: "high", lat: 29.7604, lon: -95.3698 },
-  { name: "Geet Chahil", city: "Beamsville", region: "ON", country: "Canada", confidence: "high", lat: 43.1697, lon: -79.4708 },
-  { name: "Aaron Villa", city: "Round Rock", region: "TX", country: "USA", confidence: "high", lat: 30.5083, lon: -97.6789 },
-  { name: "Joshua Adams", city: "White House", region: "TN", country: "USA", confidence: "high", lat: 36.4595, lon: -86.6642 },
-  { name: "Jesse O", city: "Fort Worth", region: "TX", country: "USA", confidence: "high", lat: 32.7555, lon: -97.3308 },
-  { name: "Marshall Moyle", city: "Tallahassee", region: "FL", country: "USA", confidence: "high", lat: 30.4383, lon: -84.2807 },
-  { name: "Colin Odle", city: "Birmingham", region: "AL", country: "USA", confidence: "high", lat: 33.5186, lon: -86.8104 },
-  { name: "Chad Ressler", city: "Cleveland", region: "OH", country: "USA", confidence: "high", lat: 41.4993, lon: -81.6944 },
-  { name: "Matt Davidge", city: "Burlington", region: "ON", country: "Canada", confidence: "medium", lat: 43.3255, lon: -79.799 },
-  { name: "Troy Robinson", city: "Burlington", region: "ON", country: "Canada", confidence: "medium", lat: 43.3255, lon: -79.799 },
-  { name: "Kasey Bruce", city: "San Francisco", region: "CA", country: "USA", confidence: "high", lat: 37.7749, lon: -122.4194 },
-  { name: "Sergio Bravo", city: "Sacramento", region: "CA", country: "USA", confidence: "high", lat: 38.5816, lon: -121.4944 },
-  { name: "Jeff Florez", city: "Orlando", region: "FL", country: "USA", confidence: "high", lat: 28.5383, lon: -81.3792 },
-  { name: "Cory Englehardt", city: "Brick", region: "NJ", country: "USA", confidence: "high", lat: 40.0583, lon: -74.1102 },
-  { name: "Trent Austen", city: "Austin", region: "TX", country: "USA", confidence: "high", lat: 30.2672, lon: -97.7431 },
-  { name: "Daniel Krum", city: "San Francisco", region: "CA", country: "USA", confidence: "high", lat: 37.7749, lon: -122.4194 },
-  { name: "Dylan Smith", city: "Greensboro", region: "NC", country: "USA", confidence: "high", lat: 36.0726, lon: -79.792 },
-  { name: "Adam Genuis", city: "Toronto", region: "ON", country: "Canada", confidence: "high", lat: 43.6532, lon: -79.3832 },
-  { name: "Spencer Daniel", city: "Atlanta", region: "GA", country: "USA", confidence: "high", lat: 33.749, lon: -84.388 },
-  { name: "Jimmy Renallo", city: "Milwaukee", region: "WI", country: "USA", confidence: "high", lat: 43.0389, lon: -87.9065 },
-  { name: "Aaron Yabes", city: "Denver", region: "CO", country: "USA", confidence: "medium", lat: 39.7392, lon: -104.9903 },
-  { name: "Colton Trcic", city: "Phoenix", region: "AZ", country: "USA", confidence: "high", lat: 33.4484, lon: -112.074 },
-  { name: "Travis Hatch", city: "Denver", region: "CO", country: "USA", confidence: "high", lat: 39.7392, lon: -104.9903 },
-  { name: "Jason Topel", city: "Hollywood", region: "FL", country: "USA", confidence: "high", lat: 26.0112, lon: -80.1495 },
-  { name: "Tory Hains", city: "Murrieta", region: "CA", country: "USA", confidence: "high", lat: 33.5539, lon: -117.2139 },
-  { name: "Chris Murphy", city: "Myrtle Beach", region: "SC", country: "USA", confidence: "medium", lat: 33.6891, lon: -78.8867 },
-  { name: "Harry Peluso", city: "Los Angeles", region: "CA", country: "USA", confidence: "medium", lat: 34.0522, lon: -118.2437 },
-  { name: "Casey Rogan", city: "Toronto", region: "ON", country: "Canada", confidence: "high", lat: 43.6532, lon: -79.3832 },
-  { name: "Samuel Velasco", city: "Winston-Salem", region: "NC", country: "USA", confidence: "high", lat: 36.0999, lon: -80.2442 },
-  { name: "Piero Delgado", city: "Los Angeles", region: "CA", country: "USA", confidence: "medium", lat: 34.0522, lon: -118.2437 },
-  { name: "Karlo King", city: "Squamish", region: "BC", country: "Canada", confidence: "high", lat: 49.7016, lon: -123.1558 },
-  { name: "Dexter Tenn", city: "Boise", region: "ID", country: "USA", confidence: "medium", lat: 43.615, lon: -116.2023 },
-  { name: "Caleb Maffey", city: "Orange", region: "CA", country: "USA", confidence: "high", lat: 33.7879, lon: -117.8531 },
-  { name: "Cassy Graceflix", city: "Denver", region: "CO", country: "USA", confidence: "high", lat: 39.7392, lon: -104.9903 },
-  { name: "Dillon Jacobs", city: "Rexburg", region: "ID", country: "USA", confidence: "medium", lat: 43.8259, lon: -111.7897 },
-  { name: "Ben Weichler", city: "Rapid City", region: "SD", country: "USA", confidence: "high", lat: 44.0805, lon: -103.231 },
-  { name: "Tyler Furlan", city: "Chicago", region: "IL", country: "USA", confidence: "high", lat: 41.8781, lon: -87.6298 },
-  { name: "Jeff Elstone", city: "New York City", region: "NY", country: "USA", confidence: "high", lat: 40.7128, lon: -74.006 },
-  { name: "Bryce Joseph-Nelson", city: "San Francisco", region: "CA", country: "USA", confidence: "medium", lat: 37.7749, lon: -122.4194 },
-  { name: "Yuliia Zontikova", city: "Saskatoon", region: "SK", country: "Canada", confidence: "high", lat: 52.1332, lon: -106.67 },
-  { name: "Lauren Donohue", city: "Santa Barbara", region: "CA", country: "USA", confidence: "high", lat: 34.4208, lon: -119.6982 },
-  { name: "Tyson Whitney", city: "Salt Lake City", region: "UT", country: "USA", confidence: "high", lat: 40.7608, lon: -111.891 },
-  { name: "Bomani Tyehimba", city: "Cincinnati", region: "OH", country: "USA", confidence: "medium", lat: 39.1031, lon: -84.512 },
-  { name: "Junior Saucedo", city: "Los Angeles", region: "CA", country: "USA", confidence: "high", lat: 34.0522, lon: -118.2437 },
-  { name: "Dale S", city: "Sacramento", region: "CA", country: "USA", confidence: "high", lat: 38.5816, lon: -121.4944 },
-  { name: "Iven Chaqueco", city: "Columbus", region: "OH", country: "USA", confidence: "medium", lat: 39.9612, lon: -82.9988 },
-]
+// 2026-08-27: the old hand-researched seed list (57 people) and the
+// international rail list (4 people) were migrated into the map_pins
+// Supabase table as pre-approved rows — see admin's Map Pins tab. Keeping
+// everyone in one editable table means a wrong pin no longer needs a code
+// change to fix, and it's the only source of truth for the map now.
 
 const LON_MIN = -172, LON_MAX = -52, LAT_MIN = 14, LAT_MAX = 75.5
 const W = 1000, H = 600
@@ -104,13 +48,6 @@ function placeMembers(members) {
   })
   return placed
 }
-
-const INTL = [
-  { name: 'Joel Whittle', location: 'Australia', region: 'oceania' },
-  { name: 'Robert McGann', location: 'Sydney, Australia', region: 'oceania' },
-  { name: 'Karl Somers', location: 'County Meath, Ireland', region: 'europe' },
-  { name: 'Zeb Bulthuis', location: 'Netherlands', region: 'europe' },
-]
 
 function clamp(v, min, max) { return Math.min(max, Math.max(min, v)) }
 
@@ -240,8 +177,11 @@ export default function MemberMap() {
             name: m.name,
             city: parsed.city,
             region: parsed.region || '',
-            country: 'USA', // best-effort; parseLocation resolves US+CA regions
-            confidence: 'self',
+            country: CA_PROVINCE_CODES.has(parsed.region) ? 'Canada' : 'USA',
+            // 'precise' = matched an actual city; 'approximate' = no city
+            // match, fell back to the whole state/province's centroid —
+            // this is what used to show up as a pin hundreds of miles off.
+            confidence: parsed.precision === 'city' ? 'precise' : 'approximate',
             lat: parsed.lat,
             lon: parsed.lon,
           })
@@ -260,17 +200,8 @@ export default function MemberMap() {
     load()
   }, [])
 
-  const MEMBERS = useMemo(() => {
-    const selfNames = new Set(selfReported.map(m => m.name.toLowerCase()))
-    const seedFiltered = SEED_MEMBERS.filter(m => !selfNames.has(m.name.toLowerCase()))
-    return [...selfReported, ...seedFiltered]
-  }, [selfReported])
-
-  const INTL_MERGED = useMemo(() => {
-    const liveNames = new Set(intlSelfReported.map(i => i.name.toLowerCase()))
-    const seedFiltered = INTL.filter(i => !liveNames.has(i.name.toLowerCase()))
-    return [...intlSelfReported, ...seedFiltered]
-  }, [intlSelfReported])
+  const MEMBERS = selfReported
+  const INTL_MERGED = intlSelfReported
 
   const placed = useMemo(() => placeMembers(MEMBERS), [MEMBERS])
   const sorted = useMemo(() => [...placed].sort((a, b) => a.name.localeCompare(b.name)), [placed])
@@ -283,14 +214,11 @@ export default function MemberMap() {
       .map(({ i }) => i)
   )
 
-  const selfCount = MEMBERS.filter(m => m.confidence === 'self').length
-  const highCount = MEMBERS.filter(m => m.confidence === 'high').length
-  const medCount = MEMBERS.filter(m => m.confidence === 'medium').length
+  const preciseCount = MEMBERS.filter(m => m.confidence === 'precise').length
+  const approximateCount = MEMBERS.filter(m => m.confidence === 'approximate').length
 
   function pinFill(confidence) {
-    if (confidence === 'self') return 'var(--pink)'
-    if (confidence === 'high') return 'rgba(255,45,120,0.75)'
-    return 'rgba(255,45,120,0.45)'
+    return confidence === 'precise' ? 'var(--pink)' : 'rgba(255,45,120,0.45)'
   }
 
   async function submitLocation() {
@@ -315,8 +243,8 @@ export default function MemberMap() {
       <div className="section-label">Community</div>
       <div className="section-title">Where The Pad Actually Is</div>
       <p className="section-desc">
-        {placed.length} members mapped — {selfCount > 0 ? `${selfCount} self-reported, ` : ''}{highCount} sourced from public profiles,
-        {' '}{medCount} inferred. Not on here yet? Add yourself below.
+        {placed.length} members mapped — {preciseCount} placed at their exact city
+        {approximateCount > 0 ? `, ${approximateCount} approximate (city not recognized, showing state/province center instead)` : ''}. Not on here yet? Add yourself below.
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
@@ -397,6 +325,7 @@ export default function MemberMap() {
           <path d={MEXICO_D} fill="rgba(240,235,248,0.05)" stroke="rgba(0,245,228,0.2)" strokeWidth={1.1 / zoom} />
           <path d={US_NATION_D} fill="rgba(240,235,248,0.05)" stroke="rgba(0,245,228,0.28)" strokeWidth={1.3 / zoom} />
           <path d={US_STATE_LINES_D} fill="none" stroke="rgba(0,245,228,0.16)" strokeWidth={0.6 / zoom} />
+          <path d={CANADA_PROVINCE_LINES_D} fill="none" stroke="rgba(0,245,228,0.16)" strokeWidth={0.6 / zoom} />
           {placed.map((m, i) => {
             const dimmed = f && !matchSet.has(i)
             const isActive = activeIdx === i
@@ -495,15 +424,11 @@ export default function MemberMap() {
       <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', marginBottom: 28, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: 'var(--muted)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'var(--pink)', display: 'inline-block' }} />
-          SELF-REPORTED
-        </span>
-        <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'rgba(255,45,120,0.75)', display: 'inline-block' }} />
-          STATED (SOURCED)
+          EXACT CITY
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'rgba(255,45,120,0.45)', display: 'inline-block' }} />
-          INFERRED
+          APPROXIMATE — CITY NOT RECOGNIZED
         </span>
       </div>
 
