@@ -1,7 +1,11 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
+import RecordingPlayer from '../components/RecordingPlayer'
+import Thumb from '../components/Thumb'
 import { supabase } from '../lib/supabase'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
+import { durationMinutes, formatHours } from '../lib/youtube'
 
 function getTypeColor(type) {
   if (type === 'Community Call') return 'tag-cyan'
@@ -31,15 +35,14 @@ function hostKey(name) {
 
 function Skeleton() {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {[1,2,3].map(i => (
-        <div key={i} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', display: 'flex', gap: 20, alignItems: 'center' }}>
-          <div style={{ width: 46, height: 46, borderRadius: '50%', background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ height: 10, width: '30%', background: 'rgba(255,255,255,0.05)', borderRadius: 4, marginBottom: 10 }} />
-            <div style={{ height: 14, width: '70%', background: 'rgba(255,255,255,0.07)', borderRadius: 4, marginBottom: 8 }} />
-            <div style={{ height: 11, width: '90%', background: 'rgba(255,255,255,0.04)', borderRadius: 4, marginBottom: 12 }} />
-            <div style={{ height: 10, width: '40%', background: 'rgba(255,255,255,0.04)', borderRadius: 4 }} />
+    <div className="lib-grid">
+      {[1, 2, 3, 4, 5, 6].map(i => (
+        <div key={i} className="rec-card skel">
+          <div className="thumb shimmer" />
+          <div className="rc-body">
+            <div className="shimmer" style={{ height: 12, width: '35%', borderRadius: 4, marginBottom: 12 }} />
+            <div className="shimmer" style={{ height: 16, width: '85%', borderRadius: 4, marginBottom: 8 }} />
+            <div className="shimmer" style={{ height: 11, width: '55%', borderRadius: 4 }} />
           </div>
         </div>
       ))}
@@ -48,6 +51,7 @@ function Skeleton() {
 }
 
 export default function Recordings() {
+  const router = useRouter()
   const [recordings, setRecordings] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('All')
@@ -131,15 +135,73 @@ export default function Recordings() {
   const shown = visible.slice(0, limit)
   const remaining = visible.length - shown.length
   const pristine = filter === 'All' && host === 'All' && !q && sort === 'newest'
+  const featured = pristine ? shown[0] : null
+  const gridItems = pristine ? shown.slice(1) : shown
+
+  // Library stats for the header: "44 calls · 71 hours".
+  const totalMinutes = useMemo(() => recordings.reduce((sum, r) => sum + (durationMinutes(r.duration) || 0), 0), [recordings])
+
+  // The open recording lives in the URL (?v=<id>) so it can be shared and the
+  // browser Back button closes the player.
+  const playingId = router.isReady ? router.query.v : null
+  const playing = playingId ? recordings.find(r => r.id === playingId) : null
+  const playingIdx = playing ? visible.findIndex(r => r.id === playing.id) : -1
+  // Opening adds one history entry, so Back closes the player. If the page was
+  // loaded straight onto a shared ?v= link there is nothing to go back to, so
+  // Close just rewrites the address instead.
+  const openedHere = useRef(false)
+  const open = id => { openedHere.current = true; router.push({ pathname: '/recordings', query: { v: id } }, undefined, { shallow: true }) }
+  const close = () => {
+    if (openedHere.current) { openedHere.current = false; router.back() }
+    else router.replace('/recordings', undefined, { shallow: true })
+  }
+  const go = delta => { const next = visible[playingIdx + delta]; if (next) router.replace({ pathname: '/recordings', query: { v: next.id } }, undefined, { shallow: true }) }
+
+  const card = rec => {
+    const isNew = isNewSince(rec.created_at, seenSnapshot)
+    return (
+      <button key={rec.id} type="button" className="rec-card" onClick={() => open(rec.id)} aria-label={`Play ${rec.title}`}>
+        <Thumb rec={rec}>
+          {isNew && <span className="new-chip thumb-new">New</span>}
+        </Thumb>
+        <div className="rc-body">
+          {rec.call_type && <span className={`tag ${getTypeColor(rec.call_type)}`}>{rec.call_type}{rec.sub_topic ? ` · ${rec.sub_topic}` : ''}</span>}
+          <div className="rc-title">{rec.title}</div>
+          <div className="rc-meta">{[rec.date, rec.host && rec.host.replace(/\.\s*$/, '')].filter(Boolean).join('  ·  ')}</div>
+          {rec.description && <div className="rc-desc">{rec.description}</div>}
+        </div>
+      </button>
+    )
+  }
 
   return (
     <Layout>
       <div className="section-label">Archive</div>
       <div className="section-title">Call Recordings</div>
-      <p className="section-desc">Every community call, skills session, and themed deep dive — searchable and organized.</p>
+      <p className="section-desc">
+        {recordings.length > 0
+          ? <>Every call, one click away — <strong className="strong">{recordings.length} calls</strong>{totalMinutes > 0 && <> and <strong className="strong">{formatHours(totalMinutes)} hours</strong> of real conversations</>}. Watch right here.</>
+          : 'Every community call, skills session, and themed deep dive — searchable and organized.'}
+      </p>
+
+      {featured && (
+        <button type="button" className="lib-hero" onClick={() => open(featured.id)} aria-label={`Play ${featured.title}`}>
+          <Thumb rec={featured} size="max">
+            {isNewSince(featured.created_at, seenSnapshot) && <span className="new-chip thumb-new">New</span>}
+          </Thumb>
+          <div className="lib-hero-body">
+            <span className="lib-eyebrow"><span className="dot" />Latest call</span>
+            {featured.call_type && <span className={`tag ${getTypeColor(featured.call_type)}`} style={{ alignSelf: 'flex-start' }}>{featured.call_type}{featured.sub_topic ? ` · ${featured.sub_topic}` : ''}</span>}
+            <div className="lib-hero-title">{featured.title}</div>
+            <div className="lib-hero-desc">{featured.description}</div>
+            <div className="rc-meta">{[featured.date, featured.duration, featured.host && `Host: ${featured.host.replace(/\.\s*$/, '')}`].filter(Boolean).join('  ·  ')}</div>
+            <span className="lib-watch">▶ Watch now</span>
+          </div>
+        </button>
+      )}
 
       <div className="controls">
-        <input className="search-input" placeholder="Search recordings..." value={search} onChange={e => setSearch(e.target.value)} />
+        <input className="search-input" placeholder="Search calls, topics, hosts..." value={search} onChange={e => setSearch(e.target.value)} />
         <div className="filter-tags">
           {FILTERS.map(f => (
             <button key={f} className={`filter-tag${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>{f}</button>
@@ -158,51 +220,14 @@ export default function Recordings() {
           <option value="newest">Newest first</option>
           <option value="oldest">Oldest first</option>
         </select>
-        {!loading && <span className="more-count" style={{ marginLeft: 'auto' }}>{visible.length} {visible.length === 1 ? 'recording' : 'recordings'}</span>}
+        {!loading && <span className="more-count" style={{ marginLeft: 'auto' }}>{visible.length} {visible.length === 1 ? 'call' : 'calls'}</span>}
       </div>
 
       {loading ? <Skeleton /> : visible.length === 0 ? (
         <div className="empty">No recordings found.</div>
       ) : (
         <>
-          <div className="rec-list">
-            {shown.map((rec, idx) => {
-              const isNewest = idx === 0 && pristine
-              const isNew = isNewSince(rec.created_at, seenSnapshot)
-              return (
-                <div
-                  key={rec.id}
-                  className="rec-item"
-                  style={isNewest ? { borderColor: 'rgba(255,45,120,0.35)', background: 'rgba(255,45,120,0.04)' } : {}}
-                  onClick={() => rec.video_url && window.open(rec.video_url, '_blank')}
-                >
-                  <div className="play-btn">
-                    <div className="play-triangle" />
-                  </div>
-                  <div className="rec-body">
-                    <div className="rec-tags">
-                      {isNew && <span className="new-chip">New</span>}
-                      {isNewest && !isNew && (
-                        <span className="tag" style={{ background: 'rgba(255,45,120,0.2)', color: 'var(--pink)', border: '1px solid rgba(255,45,120,0.4)', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', padding: '3px 8px', borderRadius: 4 }}>Latest</span>
-                      )}
-                      {rec.call_type && (
-                        <span className={`tag ${getTypeColor(rec.call_type)}`}>
-                          {rec.call_type}{rec.sub_topic ? ` · ${rec.sub_topic}` : ''}
-                        </span>
-                      )}
-                    </div>
-                    <div className="rec-title">{rec.title}</div>
-                    <div className="rec-desc">{rec.description}</div>
-                    <div className="rec-meta">
-                      <span>{rec.date}</span>
-                      {rec.duration && <span className="meta-dur">{rec.duration}</span>}
-                      {rec.host && <span>Host: {rec.host}</span>}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+          {gridItems.length > 0 && <div className="lib-grid">{gridItems.map(card)}</div>}
           {remaining > 0 && (
             <div className="more-wrap">
               <span className="more-count">Showing {shown.length} of {visible.length}</span>
@@ -212,6 +237,16 @@ export default function Recordings() {
             </div>
           )}
         </>
+      )}
+
+      {playing && (
+        <RecordingPlayer
+          rec={playing}
+          typeClass={getTypeColor(playing.call_type)}
+          onClose={close}
+          onPrev={playingIdx > 0 ? () => go(-1) : null}
+          onNext={playingIdx >= 0 && playingIdx < visible.length - 1 ? () => go(1) : null}
+        />
       )}
     </Layout>
   )

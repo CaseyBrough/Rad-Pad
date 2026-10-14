@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import Layout from '../components/Layout'
-import { supabase } from '../lib/supabase'
 import AddToCalendar from '../components/AddToCalendar'
+import { useNow } from '../components/Countdown'
+import { supabase } from '../lib/supabase'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
+import { eventSpan, formatInViewerZone, calendarDaysUntil, hasDate, isNotice } from '../lib/calendar'
 
 const CALENDLY_URL = 'https://calendly.com/radpad2026/2hrs?month=2026-04'
 
@@ -12,156 +15,219 @@ function getTagColor(type) {
   if (type === 'Office Hrs') return 'tag-cyan'
   if (type === 'Hot Seat') return 'tag-purple'
   if (type === 'Mindset') return 'tag-purple'
+  if (type === 'Skills Call') return 'tag-amber'
+  if (type === 'Q&A') return 'tag-purple'
   return 'tag-cyan'
+}
+
+function dateParts(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  return {
+    month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
+    day: d.getDate(),
+    weekday: d.toLocaleString('en-US', { weekday: 'long' }),
+    group: d.toLocaleString('en-US', { month: 'long', year: 'numeric' }),
+  }
+}
+
+function Skeleton() {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {[1, 2, 3].map(i => (
+        <div key={i} className="ev-row skel">
+          <div className="ev-date shimmer" />
+          <div style={{ flex: 1 }}>
+            <div className="shimmer" style={{ height: 16, width: '55%', borderRadius: 4, marginBottom: 12 }} />
+            <div className="shimmer" style={{ height: 12, width: '85%', borderRadius: 4, marginBottom: 8 }} />
+            <div className="shimmer" style={{ height: 12, width: '40%', borderRadius: 4 }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export default function Calendar() {
   const [events, setEvents] = useState([])
+  const [recordings, setRecordings] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showPast, setShowPast] = useState(false)
   const seenSnapshot = useSeenSnapshot('events')
+  const now = useNow(30000)
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('events')
-        .select('*')
-        .order('event_date', { ascending: true })
-      setEvents(data || [])
+      const [ev, rec] = await Promise.all([
+        supabase.from('events').select('*').order('event_date', { ascending: true }),
+        supabase.from('recordings').select('id,date,title').order('date', { ascending: false }),
+      ])
+      setEvents(ev.data || [])
+      setRecordings(rec.data || [])
       setLoading(false)
     }
     load()
   }, [])
 
-  function formatDate(dateStr) {
-    if (!dateStr) return { month: '', day: '' }
-    const d = new Date(dateStr + 'T00:00:00')
+  // A call counts as upcoming until it has finished, in the member's timezone.
+  // Drafts with no usable date are kept aside as "date to be announced".
+  const { upcoming, past, undated } = useMemo(() => {
+    if (!now) return { upcoming: [], past: [], undated: [] }
+    const withSpan = events.filter(hasDate).map(ev => ({ ev, span: eventSpan(ev) }))
     return {
-      month: d.toLocaleString('en-US', { month: 'short' }).toUpperCase(),
-      day: d.getDate()
+      upcoming: withSpan.filter(x => x.span.endMs > now).sort((a, b) => a.span.startMs - b.span.startMs),
+      past: withSpan.filter(x => x.span.endMs <= now).sort((a, b) => b.span.startMs - a.span.startMs),
+      undated: events.filter(ev => !hasDate(ev)),
     }
-  }
+  }, [events, now])
 
-  // The member's own calendar date, not UTC - otherwise an evening call flips to
-  // "past" several hours early for anyone west of Greenwich.
-  const now = new Date()
-  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  // The replay for a past call, found by matching the date.
+  const recordingByDate = useMemo(() => {
+    const map = new Map()
+    recordings.forEach(r => { if (r.date && !map.has(r.date)) map.set(r.date, r) })
+    return map
+  }, [recordings])
+
+  // Group upcoming calls under month headings.
+  const groups = useMemo(() => {
+    const out = []
+    upcoming.forEach(item => {
+      const label = dateParts(item.ev.event_date).group
+      const last = out[out.length - 1]
+      if (last && last.label === label) last.items.push(item)
+      else out.push({ label, items: [item] })
+    })
+    return out
+  }, [upcoming])
+
+  const nextId = upcoming.find(x => !isNotice(x.ev))?.ev.id
 
   return (
     <Layout>
       <div className="section-label">Schedule</div>
       <div className="section-title">Calendar</div>
-      <p className="section-desc">Upcoming community calls, events, and office hours.</p>
+      <p className="section-desc">Upcoming community calls, events, and office hours — shown in your time.</p>
 
       {/* Host a call CTA */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, background: 'rgba(0,245,228,0.06)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 12, padding: '16px 22px', marginBottom: 28, flexWrap: 'wrap' }}>
+      <div className="cta-strip">
         <div>
-          <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)', marginBottom: 3 }}>Want to host a call?</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)' }}>Grab a slot and bring a topic — the community loves member-led sessions.</div>
+          <div className="cta-title">Want to host a call?</div>
+          <div className="cta-sub">Grab a slot and bring a topic — the community loves member-led sessions.</div>
         </div>
-        <a
-          href={CALENDLY_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cyan)', background: 'rgba(0,245,228,0.1)', border: '1px solid rgba(0,245,228,0.3)', borderRadius: 8, padding: '10px 18px', textDecoration: 'none', whiteSpace: 'nowrap', transition: 'all 0.2s' }}
-          onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 20px rgba(0,245,228,0.35)'}
-          onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
-        >
-          Book a Slot →
-        </a>
+        <a className="cta-btn" href={CALENDLY_URL} target="_blank" rel="noopener noreferrer">Book a Slot →</a>
       </div>
 
-      {loading ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {[1,2,3].map(i => (
-            <div key={i} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', display: 'flex', gap: 24 }}>
-              <div style={{ minWidth: 48, display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ height: 10, width: 32, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }} />
-                <div style={{ height: 28, width: 36, background: 'rgba(255,255,255,0.07)', borderRadius: 4 }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ height: 14, width: '60%', background: 'rgba(255,255,255,0.07)', borderRadius: 4, marginBottom: 10 }} />
-                <div style={{ height: 11, width: '90%', background: 'rgba(255,255,255,0.04)', borderRadius: 4, marginBottom: 6 }} />
-                <div style={{ height: 11, width: '70%', background: 'rgba(255,255,255,0.04)', borderRadius: 4, marginBottom: 12 }} />
-                <div style={{ height: 10, width: '40%', background: 'rgba(255,255,255,0.04)', borderRadius: 4 }} />
-              </div>
+      {loading ? <Skeleton /> : (
+        <>
+          {upcoming.length === 0 ? (
+            <div className="empty-card">
+              <div style={{ fontSize: 32, marginBottom: 14 }}>📅</div>
+              <div className="empty-title">Next Call TBD</div>
+              <div className="empty-text">Nothing scheduled yet — check back soon. Calls are usually posted 1–2 weeks out.</div>
             </div>
-          ))}
-        </div>
-      ) : events.length === 0 ? (
-        <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 14, padding: '52px 40px', textAlign: 'center', maxWidth: 480 }}>
-          <div style={{ fontSize: 32, marginBottom: 16 }}>📅</div>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 10 }}>Next Call TBD</div>
-          <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 24 }}>
-            Nothing scheduled yet — check back soon. Calls are usually posted 1–2 weeks out.
-          </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--cyan)' }}>
-            In the meantime → check the Slack for announcements
-          </div>
-        </div>
-      ) : (
-        <div className="event-list">
-          {[
-            ...events.filter(ev => ev.event_date >= today),
-            ...events.filter(ev => ev.event_date < today).reverse()
-          ].map(ev => {
-            const { month, day } = formatDate(ev.event_date)
-            const tagColor = getTagColor(ev.type)
-            const isPast = ev.event_date < today
-            return (
-              <div key={ev.id} className="event-item" style={isPast ? { opacity: 0.4, cursor: 'default' } : {}}>
-                <div className="event-date-block" style={{ position: 'relative' }}>
-                  <div className="event-month" style={isPast ? { color: 'var(--muted)' } : {}}>{month}</div>
-                  <div className="event-day" style={isPast ? { color: 'var(--muted)' } : {}}>{day}</div>
-                  {isPast && (
-                    <svg viewBox="0 0 48 56" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.6 }}>
-                      <line x1="0" y1="56" x2="48" y2="0" stroke="var(--muted)" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  )}
+          ) : (
+            groups.map(group => (
+              <section key={group.label} className="ev-group">
+                <h2 className="ev-month">{group.label}</h2>
+                <div className="ev-list">
+                  {group.items.map(({ ev, span }) => {
+                    const { month, day, weekday } = dateParts(ev.event_date)
+                    const isNext = ev.id === nextId
+                    const notice = isNotice(ev)
+                    const live = !notice && !span.allDay && now >= span.startMs && now < span.endMs
+                    const days = calendarDaysUntil(span.startMs, now)
+                    const when = notice ? null : live ? 'Happening now' : days <= 0 ? 'Today' : days === 1 ? 'Tomorrow' : null
+                    return (
+                      <article key={ev.id} className={`ev-row${isNext ? ' next' : ''}${notice ? ' notice' : ''}`}>
+                        <div className="ev-date" aria-hidden="true">
+                          <span>{month}</span>
+                          <b>{day}</b>
+                        </div>
+                        <div className="ev-main">
+                          <div className="ev-head">
+                            <h3 className="ev-title">{ev.title}</h3>
+                            {live && <span className="live-chip"><span className="live-dot" />Live</span>}
+                            {notice && <span className="when-chip">Notice</span>}
+                            {!live && isNext && <span className="next-chip">Up next</span>}
+                            {!live && !isNext && isNewSince(ev.created_at, seenSnapshot) && <span className="new-chip">New</span>}
+                            {when && !live && <span className="when-chip">{when}</span>}
+                            {ev.type && <span className={`tag ${getTagColor(ev.type)} ev-type`}>{ev.type}</span>}
+                          </div>
+                          {ev.description && <p className="ev-desc">{ev.description}</p>}
+                          <div className="ev-meta">
+                            <span>{weekday}{ev.time ? ` · ${ev.time}` : ''}</span>
+                            {ev.duration && <span>{ev.duration}</span>}
+                            {ev.platform && <span>{ev.platform}</span>}
+                          </div>
+                          {span.hasZone && !notice && <div className="ev-local">Your time: {formatInViewerZone(span.startMs)}</div>}
+                          {!notice && (
+                            <div className="ev-actions">
+                              {ev.zoom_url && <a className="btn-join" href={ev.zoom_url} target="_blank" rel="noopener noreferrer">Join on Zoom</a>}
+                              <AddToCalendar ev={ev} />
+                            </div>
+                          )}
+                        </div>
+                      </article>
+                    )
+                  })}
                 </div>
-                <div className="event-body">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                    <div className="event-title" style={isPast ? { textDecoration: 'line-through', textDecorationColor: 'rgba(255,255,255,0.2)' } : {}}>{ev.title}</div>
-                    {!isPast && isNewSince(ev.created_at, seenSnapshot) && <span className="new-chip">New</span>}
-                    {isPast
-                      ? <span style={{ marginLeft: 'auto', whiteSpace: 'nowrap', fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--muted)', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '3px 8px', borderRadius: 4 }}>Past</span>
-                      : ev.type && <span className={`tag ${tagColor}`} style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>{ev.type}</span>
-                    }
-                  </div>
-                  <div className="event-desc">{ev.description}</div>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
-                    <div className="event-meta">
-                      {ev.time && <span>{ev.time}</span>}
-                      {ev.duration && <span>{ev.duration}</span>}
-                      {ev.platform && <span>{ev.platform}</span>}
+              </section>
+            ))
+          )}
+
+          {undated.length > 0 && (
+            <section className="ev-group">
+              <h2 className="ev-month">Date to be announced</h2>
+              <div className="ev-list">
+                {undated.map(ev => (
+                  <article key={ev.id} className="ev-row tba">
+                    <div className="ev-date" aria-hidden="true"><span>TBA</span><b>?</b></div>
+                    <div className="ev-main">
+                      <div className="ev-head">
+                        <h3 className="ev-title">{ev.title}</h3>
+                        {ev.type && <span className={`tag ${getTagColor(ev.type)} ev-type`}>{ev.type}</span>}
+                      </div>
+                      {ev.description && <p className="ev-desc">{ev.description}</p>}
+                      <div className="ev-meta">
+                        {ev.time && <span>{ev.time}</span>}
+                        {ev.duration && <span>{ev.duration}</span>}
+                        {ev.platform && <span>{ev.platform}</span>}
+                      </div>
                     </div>
-                    {!isPast && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        {ev.event_date && <AddToCalendar ev={ev} />}
-                        {ev.zoom_url && (
-                      <a
-                        href={ev.zoom_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#fff', background: 'var(--pink)', border: 'none', borderRadius: 6, padding: '7px 14px', textDecoration: 'none', boxShadow: '0 0 14px rgba(255,45,120,0.35)', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
-                        onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 28px rgba(255,45,120,0.65)'}
-                        onMouseLeave={e => e.currentTarget.style.boxShadow = '0 0 14px rgba(255,45,120,0.35)'}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                          <path d="M2 4a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V4z" stroke="white" strokeWidth="1.3"/>
-                          <path d="M14 6l-4 2 4 2V6z" fill="white"/>
-                        </svg>
-                        Join Zoom
-                      </a>
+                  </article>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {past.length > 0 && (
+            <section className="ev-group">
+              <button type="button" className="past-toggle" aria-expanded={showPast} onClick={() => setShowPast(v => !v)}>
+                <span>Past calls <em>{past.length}</em></span>
+                <span className="chev" aria-hidden="true">{showPast ? '−' : '+'}</span>
+              </button>
+              {showPast && (
+                <div className="past-list">
+                  {past.map(({ ev }) => {
+                    const rec = recordingByDate.get(ev.event_date)
+                    const { month, day } = dateParts(ev.event_date)
+                    return (
+                      <div key={ev.id} className="past-row">
+                        <span className="past-date">{month} {day}</span>
+                        <span className="past-title">{ev.title}</span>
+                        {ev.type && <span className={`tag ${getTagColor(ev.type)}`}>{ev.type}</span>}
+                        {rec ? (
+                          <Link className="past-watch" href={{ pathname: '/recordings', query: { v: rec.id } }}>▶ Watch recording</Link>
+                        ) : (
+                          <span className="past-none">No recording</span>
                         )}
                       </div>
-                    )}
-                  </div>
+                    )
+                  })}
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              )}
+            </section>
+          )}
+        </>
       )}
     </Layout>
   )

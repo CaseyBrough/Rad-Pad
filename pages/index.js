@@ -1,178 +1,233 @@
-import { useState, useEffect } from 'react'
-import Layout from '../components/Layout'
+import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
+import Layout from '../components/Layout'
+import Thumb from '../components/Thumb'
+import Countdown, { useNow } from '../components/Countdown'
+import CountUp from '../components/CountUp'
+import AddToCalendar from '../components/AddToCalendar'
 import { supabase } from '../lib/supabase'
 import { useNewCounts, summarizeNew } from '../lib/newSince'
+import { eventSpan, formatInViewerZone, calendarDaysUntil, isNotice } from '../lib/calendar'
+import { durationMinutes } from '../lib/youtube'
 
-const QUICK = [
-  {
-    href: '/recordings', label: 'Call Recordings',
-    desc: 'Every coaching call and hot seat, tagged and searchable.',
-    color: 'cyan',
-  },
-  {
-    href: '/resources', label: 'Resources',
-    desc: 'Templates, guides, and files filtered by category.',
-    color: 'pink',
-  },
-  {
-    href: '/calendar', label: 'Calendar',
-    desc: 'Upcoming calls, community events, and office hours.',
-    color: 'cyan',
-  },
-  {
-    href: '/links', label: 'Links',
-    desc: 'Curated tools, affiliate picks, and recommended services.',
-    color: 'pink',
-  },
-]
+const typeClass = t => (t === 'Community Call' ? 'tag-cyan' : t === 'Skills Call' ? 'tag-amber' : t === 'Theme Call' ? 'tag-purple' : 'tag-cyan')
+
+function relativeDay(ms, now) {
+  const days = calendarDaysUntil(ms, now)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return `in ${days} days`
+}
 
 export default function Home() {
-  const [latestRec, setLatestRec] = useState(null)
-  const [nextEvent, setNextEvent] = useState(null)
-  const [announcement, setAnnouncement] = useState(null)
+  const now = useNow(30000)
   const whatsNew = summarizeNew(useNewCounts(null))
+  const [recordings, setRecordings] = useState([])
+  const [events, setEvents] = useState([])
+  const [announcement, setAnnouncement] = useState(null)
+  const [members, setMembers] = useState([])
+  const [counts, setCounts] = useState({ pins: 0, resources: 0, links: 0 })
+  const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
     async function load() {
-      const { data: rec } = await supabase
-        .from('recordings')
-        .select('*')
-        .order('date', { ascending: false })
-        .limit(1)
-        .single()
-      if (rec) setLatestRec(rec)
-
-      const today = new Date().toISOString().split('T')[0]
-      const { data: ev } = await supabase
-        .from('events')
-        .select('*')
-        .gte('event_date', today)
-        .order('event_date', { ascending: true })
-        .limit(1)
-        .single()
-      if (ev) setNextEvent(ev)
-
-      const { data: ann } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('archived', false)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single()
-      if (ann) setAnnouncement(ann)
+      // Yesterday onward: a call that's happening right now (or just ended in a
+      // timezone behind UTC) still counts as "current".
+      const y = new Date(Date.now() - 86400000)
+      const since = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`
+      const head = (table, apply) => {
+        let q = supabase.from(table).select('*', { count: 'exact', head: true })
+        if (apply) q = apply(q)
+        return q.then(r => r.count || 0)
+      }
+      const [rec, ev, ann, mem, pins, resources, links] = await Promise.all([
+        supabase.from('recordings').select('id,title,description,date,duration,host,video_url,call_type,sub_topic,created_at').order('date', { ascending: false }),
+        supabase.from('events').select('*').gte('event_date', since).order('event_date', { ascending: true }).limit(8),
+        supabase.from('announcements').select('*').eq('archived', false).order('created_at', { ascending: false }).limit(1),
+        supabase.from('members').select('id,name,photo_url').eq('approved', true).order('created_at', { ascending: false }),
+        head('map_pins', q => q.eq('approved', true)),
+        head('resources'),
+        head('links', q => q.eq('approved', true)),
+      ])
+      setRecordings(rec.data || [])
+      setEvents(ev.data || [])
+      setAnnouncement(ann.data?.[0] || null)
+      setMembers(mem.data || [])
+      setCounts({ pins, resources, links })
+      setLoaded(true)
     }
     load()
   }, [])
 
+  // The call that is happening now, or the next one to start.
+  const next = useMemo(() => {
+    if (!now) return null
+    const withSpan = events
+      .filter(ev => !isNotice(ev))
+      .map(ev => ({ ev, span: eventSpan(ev) }))
+      .filter(x => x.span && x.span.endMs > now)
+    return withSpan.sort((a, b) => a.span.startMs - b.span.startMs)[0] || null
+  }, [events, now])
+
+  const totalMinutes = useMemo(() => recordings.reduce((sum, r) => sum + (durationMinutes(r.duration) || 0), 0), [recordings])
+  const latest = recordings[0]
+  const recent = recordings.slice(1, 5)
+  const faces = members.filter(m => m.photo_url).slice(0, 8)
+
+  const subline = !loaded || !now
+    ? ' '
+    : next
+      ? (next.span.startMs <= now ? (next.span.allDay ? 'There is a call today.' : 'A call is happening right now.') : `Your next call is ${relativeDay(next.span.startMs, now)}.`)
+      : 'No calls on the calendar yet — new ones usually appear 1–2 weeks out.'
+
   return (
     <Layout>
-      <div style={{ paddingTop: 16 }}>
-        <div style={{ paddingBottom: 48, borderBottom: '1px solid var(--border)', marginBottom: 40 }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: 80, color: 'var(--pink)', lineHeight: 1, marginBottom: 10, textShadow: '0 0 40px rgba(255,45,120,0.4), 0 0 80px rgba(255,45,120,0.15)' }}>
-            The Rad Pad
-          </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 18 }}>
-            Referral-Only · Video Business Owners
-          </div>
-          <p style={{ color: 'var(--muted)', fontSize: 15, maxWidth: 440, lineHeight: 1.7 }}>
-            Your private hub for coaching calls, resources, community events, and everything we're building together.
-          </p>
+      <div className="home-hero">
+        <div className="section-label">Members Hub</div>
+        <h1 className="home-greeting">Welcome back.</h1>
+        <p className="home-sub">{subline}</p>
+        <button type="button" className="home-search" onClick={() => window.dispatchEvent(new Event('radpad:open-search'))}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" /></svg>
+          <span>Search calls, people, resources…</span>
+          <kbd>⌘K</kbd>
+        </button>
+      </div>
+
+      {whatsNew.length > 0 && (
+        <div className="whatsnew" role="status">
+          <span className="whatsnew-label">Since your last visit</span>
+          <span className="whatsnew-items">
+            {whatsNew.map(item => (
+              <Link key={item.href} href={item.href}>{item.count} new {item.label}</Link>
+            ))}
+          </span>
         </div>
+      )}
 
-        {whatsNew.length > 0 && (
-          <div className="whatsnew" role="status">
-            <span className="whatsnew-label">Since your last visit</span>
-            <span className="whatsnew-items">
-              {whatsNew.map(item => (
-                <Link key={item.href} href={item.href}>{item.count} new {item.label}</Link>
-              ))}
-            </span>
-          </div>
-        )}
-
-        {(latestRec || nextEvent) && (
-          <div style={{ display: 'grid', gridTemplateColumns: latestRec && nextEvent ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 40 }}>
-            {latestRec && (
-              <Link href="/recordings" style={{ textDecoration: 'none' }}>
-                <div style={{ background: 'linear-gradient(135deg, rgba(255,45,120,0.12), rgba(255,45,120,0.04))', border: '1px solid rgba(255,45,120,0.3)', borderRadius: 14, padding: '22px 24px', cursor: 'pointer', transition: 'all 0.22s', height: '100%' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--pink)', display: 'inline-block', boxShadow: '0 0 6px var(--pink)' }} />
-                    Latest Recording
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text)', marginBottom: 6, lineHeight: 1.3 }}>{latestRec.title}</div>
-                  <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>{latestRec.description}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 14 }}>
-                    <span>{latestRec.date}</span>
-                    {latestRec.duration && <span style={{ color: 'var(--cyan)' }}>{latestRec.duration}</span>}
-                    {latestRec.host && <span>Host: {latestRec.host}</span>}
-                  </div>
-                </div>
-              </Link>
-            )}
-            {nextEvent && (
-              <Link href="/calendar" style={{ textDecoration: 'none' }}>
-                <div style={{ background: 'linear-gradient(135deg, rgba(0,245,228,0.08), rgba(0,245,228,0.02))', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 14, padding: '22px 24px', cursor: 'pointer', transition: 'all 0.22s', height: '100%' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', display: 'inline-block', boxShadow: '0 0 6px var(--cyan)' }} />
-                    Up Next
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text)', marginBottom: 6, lineHeight: 1.3 }}>{nextEvent.title}</div>
-                  <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>{nextEvent.description}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 14 }}>
-                    <span>{nextEvent.event_date}</span>
-                    {nextEvent.time && <span>{nextEvent.time}</span>}
-                    {nextEvent.type && <span style={{ color: 'var(--cyan)' }}>{nextEvent.type}</span>}
-                  </div>
-                </div>
-              </Link>
-            )}
-          </div>
-        )}
-
-        {/* LATEST ANNOUNCEMENT */}
-        {announcement && (
-          <Link href="/the-pad" style={{ textDecoration: 'none', display: 'block', marginBottom: 40 }}>
-            <div style={{
-              background: 'rgba(255,45,120,0.04)',
-              border: '1px solid rgba(255,45,120,0.25)',
-              borderRadius: 14,
-              padding: '18px 24px',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 14,
-              cursor: 'pointer',
-              transition: 'border-color 0.18s, box-shadow 0.18s',
-            }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,45,120,0.5)'; e.currentTarget.style.boxShadow = '0 0 18px rgba(255,45,120,0.1)' }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,45,120,0.25)'; e.currentTarget.style.boxShadow = 'none' }}
-            >
-              <span style={{ fontSize: 16, marginTop: 1 }}>📌</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 6 }}>
-                  Bulletin Board · {new Date(announcement.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                </div>
-                <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                  {announcement.message}
-                </div>
+      <div className="home-grid">
+        {/* UP NEXT */}
+        <section className="next-card" aria-label="Next call">
+          {!loaded ? (
+            <>
+              <div className="shimmer" style={{ height: 12, width: 110, borderRadius: 4, marginBottom: 18 }} />
+              <div className="shimmer" style={{ height: 30, width: '70%', borderRadius: 6, marginBottom: 14 }} />
+              <div className="shimmer" style={{ height: 14, width: '90%', borderRadius: 4, marginBottom: 8 }} />
+              <div className="shimmer" style={{ height: 64, width: '60%', borderRadius: 8, marginTop: 22 }} />
+            </>
+          ) : next ? (
+            <>
+              <div className="next-top">
+                <span className="lib-eyebrow cyan"><span className="dot" />{next.span.startMs <= now && !next.span.allDay ? 'Live now' : 'Up next'}</span>
+                {next.ev.type && <span className={`tag ${typeClass(next.ev.type)}`}>{next.ev.type}</span>}
               </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', marginTop: 2 }}>View all →</span>
+              <h2 className="next-title">{next.ev.title}</h2>
+              {next.ev.description && <p className="next-desc">{next.ev.description}</p>}
+              <div className="next-when">
+                <span><b>{[next.ev.event_date, next.ev.time].filter(Boolean).join(' · ')}</b>{next.ev.duration ? ` · ${next.ev.duration}` : ''}</span>
+                {next.span.hasZone && <span className="next-local">Your time: {formatInViewerZone(next.span.startMs)}</span>}
+              </div>
+              <Countdown startMs={next.span.startMs} endMs={next.span.endMs} allDay={next.span.allDay} />
+              <div className="next-actions">
+                {next.ev.zoom_url && <a className="btn-join" href={next.ev.zoom_url} target="_blank" rel="noopener noreferrer">Join on Zoom</a>}
+                {next.ev.event_date && <AddToCalendar ev={next.ev} />}
+                <Link className="next-link" href="/calendar">Full calendar →</Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="next-top"><span className="lib-eyebrow cyan"><span className="dot" />Up next</span></div>
+              <h2 className="next-title">Next call to be announced</h2>
+              <p className="next-desc">Calls are usually posted one to two weeks out. Catch up on a recent one while you wait.</p>
+              <div className="next-actions"><Link className="next-link" href="/calendar">Open the calendar →</Link></div>
+            </>
+          )}
+        </section>
+
+        {/* LATEST CALL */}
+        {latest ? (
+          <Link href={{ pathname: '/recordings', query: { v: latest.id } }} className="latest-card" aria-label={`Play ${latest.title}`}>
+            <Thumb rec={latest} size="max" />
+            <div className="latest-body">
+              <span className="lib-eyebrow"><span className="dot" />Latest call</span>
+              <div className="latest-title">{latest.title}</div>
+              <div className="rc-meta">{[latest.date, latest.duration, latest.host && latest.host.replace(/\.\s*$/, '')].filter(Boolean).join('  ·  ')}</div>
             </div>
           </Link>
+        ) : (
+          <div className="latest-card skel"><div className="thumb shimmer" /></div>
         )}
-
-        <div className="section-label">Quick Access</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 16, marginTop: 16 }}>
-          {QUICK.map(({ href, label, desc, color }) => (
-            <Link key={href} href={href} style={{ textDecoration: 'none' }}>
-              <div className="card" style={{ gap: 12 }}>
-                <div style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.04em', color: color === 'cyan' ? 'var(--cyan)' : 'var(--pink)' }}>{label}</div>
-                <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>{desc}</div>
-              </div>
-            </Link>
-          ))}
-        </div>
       </div>
+
+      {/* CATCH UP RAIL */}
+      {recent.length > 0 && (
+        <section className="home-section">
+          <div className="home-section-head">
+            <h2>Catch up</h2>
+            <Link href="/recordings">All {recordings.length} calls →</Link>
+          </div>
+          <div className="rail">
+            {recent.map(rec => (
+              <Link key={rec.id} href={{ pathname: '/recordings', query: { v: rec.id } }} className="rec-card" aria-label={`Play ${rec.title}`}>
+                <Thumb rec={rec} />
+                <div className="rc-body">
+                  {rec.call_type && <span className={`tag ${typeClass(rec.call_type)}`}>{rec.call_type}{rec.sub_topic ? ` · ${rec.sub_topic}` : ''}</span>}
+                  <div className="rc-title">{rec.title}</div>
+                  <div className="rc-meta">{[rec.date, rec.host && rec.host.replace(/\.\s*$/, '')].filter(Boolean).join('  ·  ')}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div className="home-split">
+        {/* BULLETIN */}
+        <section className="panel-card" aria-label="Bulletin board">
+          <div className="home-section-head">
+            <h2>📌 Bulletin board</h2>
+            <Link href="/the-pad">View all →</Link>
+          </div>
+          {announcement ? (
+            <>
+              <div className="rc-meta" style={{ marginBottom: 10 }}>{new Date(announcement.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+              <div className="bulletin-text">{announcement.message}</div>
+            </>
+          ) : (
+            <div className="rc-desc">{loaded ? 'Nothing posted right now.' : ' '}</div>
+          )}
+        </section>
+
+        {/* COMMUNITY PULSE */}
+        <section className="panel-card pulse" aria-label="The community">
+          <div className="home-section-head">
+            <h2>The community</h2>
+            <Link href="/map">See the map →</Link>
+          </div>
+          <div className="stat-row">
+            <div className="stat"><b><CountUp to={counts.pins} /></b><span>on the map</span></div>
+            <div className="stat"><b><CountUp to={recordings.length} /></b><span>calls recorded</span></div>
+            <div className="stat"><b><CountUp to={Math.round(totalMinutes / 60)} /></b><span>hours of talk</span></div>
+          </div>
+          {faces.length > 0 && (
+            <Link href="/directory" className="faces" aria-label="Open the member directory">
+              {faces.map(m => <img key={m.id} src={m.photo_url} alt="" title={m.name} loading="lazy" />)}
+              {members.length > faces.length && <span className="faces-more">+{members.length - faces.length}</span>}
+            </Link>
+          )}
+          <Link href="/the-pad" className="refer-line">Know someone who&apos;d be a great fit? <b>Refer them →</b></Link>
+        </section>
+      </div>
+
+      {/* EXPLORE TILES */}
+      <section className="home-section">
+        <div className="home-section-head"><h2>Explore</h2></div>
+        <div className="tiles">
+          <Link href="/resources" className="tile"><b>Resources</b><span>{counts.resources} guides &amp; templates</span></Link>
+          <Link href="/links" className="tile"><b>Links</b><span>{counts.links} vetted tools &amp; services</span></Link>
+          <Link href="/directory" className="tile"><b>Directory</b><span>{members.length} member profiles</span></Link>
+          <Link href="/map" className="tile"><b>Map</b><span>find members near you</span></Link>
+        </div>
+      </section>
     </Layout>
   )
 }

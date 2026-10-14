@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import SidePanel from '../components/SidePanel'
@@ -24,17 +25,29 @@ function Skeleton() {
   )
 }
 
+function initialsOf(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?'
+}
+
 export default function Directory() {
+  const router = useRouter()
   const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
+  const [spec, setSpec] = useState('All')
   const [form, setForm] = useState({ name: '', location: '', specialty: '', bio: '', website: '', linkedin: '', instagram: '', photo_url: '' })
   const [photoFile, setPhotoFile] = useState(null)
   const [photoPreview, setPhotoPreview] = useState(null)
   const [error, setError] = useState('')
+
+  // /directory?q=Name (from the global search) pre-fills the search box.
+  useEffect(() => {
+    if (router.isReady && typeof router.query.q === 'string') setSearch(router.query.q)
+  }, [router.isReady, router.query.q])
 
   useEffect(() => {
     async function load() {
@@ -103,11 +116,21 @@ export default function Directory() {
     )
   }
 
+  // Specialty chips with counts, biggest group first ("Other" last).
+  const specOptions = (() => {
+    const counts = new Map()
+    members.forEach(m => { if (m.specialty) counts.set(m.specialty, (counts.get(m.specialty) || 0) + 1) })
+    return [...counts.entries()].sort((a, b) => (a[0] === 'Other') - (b[0] === 'Other') || b[1] - a[1] || a[0].localeCompare(b[0]))
+  })()
+
+  const q = search.trim().toLowerCase()
   const visible = members.filter(m =>
-    !search ||
-    m.name?.toLowerCase().includes(search.toLowerCase()) ||
-    m.specialty?.toLowerCase().includes(search.toLowerCase()) ||
-    m.location?.toLowerCase().includes(search.toLowerCase())
+    (spec === 'All' || m.specialty === spec) &&
+    (!q ||
+      m.name?.toLowerCase().includes(q) ||
+      m.specialty?.toLowerCase().includes(q) ||
+      m.location?.toLowerCase().includes(q) ||
+      m.bio?.toLowerCase().includes(q))
   )
 
   return (
@@ -135,6 +158,15 @@ export default function Directory() {
           </button>
         )}
       </div>
+
+      {specOptions.length > 1 && (
+        <div className="filter-tags" style={{ marginBottom: 24 }}>
+          <button className={`filter-tag${spec === 'All' ? ' active' : ''}`} onClick={() => setSpec('All')}>All ({members.length})</button>
+          {specOptions.map(([name, n]) => (
+            <button key={name} className={`filter-tag${spec === name ? ' active' : ''}`} onClick={() => setSpec(name)}>{name} ({n})</button>
+          ))}
+        </div>
+      )}
 
       {showForm && (
         <SidePanel
@@ -207,12 +239,12 @@ export default function Directory() {
               <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(255,45,120,0.25)', flexShrink: 0, background: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {m.photo_url
                   ? <img src={m.photo_url} alt={m.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <span style={{ fontSize: 28 }}>👤</span>
+                  : <span className="initials-avatar" aria-hidden="true">{initialsOf(m.name)}</span>
                 }
               </div>
               <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{m.name}</div>
               {m.location && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--muted)', textTransform: 'uppercase' }}>{m.location}</div>}
-              {m.specialty && (
+              {m.specialty && m.specialty !== 'Other' && (
                 <span className="tag tag-pink" style={{ alignSelf: 'center' }}>{m.specialty}</span>
               )}
               {m.bio && <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.55 }}>{m.bio}</div>}

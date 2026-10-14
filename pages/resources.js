@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
@@ -28,11 +29,17 @@ function Skeleton() {
 }
 
 export default function Resources() {
+  const router = useRouter()
   const [resources, setResources] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('All')
   const [search, setSearch] = useState('')
   const seenSnapshot = useSeenSnapshot('resources')
+
+  // /resources?q=Title (from the global search) pre-fills the search box.
+  useEffect(() => {
+    if (router.isReady && typeof router.query.q === 'string') setSearch(router.query.q)
+  }, [router.isReady, router.query.q])
 
   useEffect(() => {
     async function load() {

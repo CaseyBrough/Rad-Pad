@@ -4,6 +4,7 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import { NEW_SECTIONS, useNewCounts, markSeen } from '../lib/newSince'
 import Toaster from './Toaster'
+import CommandPalette from './CommandPalette'
 
 const NAV = [
   {
@@ -85,6 +86,9 @@ export default function Layout({ children }) {
           )}
         </button>
         <Link href="/" className="mobile-topbar-logo">The Rad Pad</Link>
+        <button type="button" className="mobile-search-btn" aria-label="Search the hub" onClick={() => window.dispatchEvent(new Event('radpad:open-search'))}>
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" /></svg>
+        </button>
       </div>
 
       {mobileOpen && <div className="mobile-backdrop" onClick={() => setMobileOpen(false)} />}
@@ -94,6 +98,11 @@ export default function Layout({ children }) {
           <Link href="/" className="logo">The Rad Pad</Link>
           <span className="logo-sub">Members Hub</span>
         </div>
+        <button type="button" className="side-search" onClick={() => window.dispatchEvent(new Event('radpad:open-search'))}>
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5" /><path d="M10.5 10.5L14 14" /></svg>
+          <span>Search</span>
+          <kbd>⌘K</kbd>
+        </button>
         <nav>
           {NAV.map(({ href, label, icon }) => {
             const n = newCounts?.[NEW_SECTIONS[href]?.key] || 0
@@ -126,6 +135,7 @@ export default function Layout({ children }) {
         {children}
       </main>
       <Toaster />
+      <CommandPalette />
     </div>
   )
 }
