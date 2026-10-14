@@ -1,30 +1,109 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
-import { useSeenSnapshot, isNewSince } from '../lib/newSince'
-
-const FILTERS = ['All', 'Templates', 'Guides', 'Scripts', 'Finance']
+import { toast } from '../components/Toaster'
+import { useSeenSnapshot, isNewSince, parseTs } from '../lib/newSince'
 
 const ICON_COLORS = { Templates: '#00F5E4', Guides: '#B47EFF', Scripts: '#FF2D78', Finance: '#FFB432' }
+const colorOf = category => ICON_COLORS[category] || '#FF2D78'
+
+// "PDF" / "Google Doc" / "Link" -> the short label printed on the document icon.
+function typeLabel(fileType) {
+  const t = String(fileType || '').toLowerCase()
+  if (t.includes('pdf')) return 'PDF'
+  if (t.includes('doc')) return 'DOC'
+  if (t.includes('sheet') || t.includes('xls')) return 'XLS'
+  if (t.includes('slide') || t.includes('ppt')) return 'PPT'
+  if (t.includes('video')) return 'VID'
+  if (t.includes('zip')) return 'ZIP'
+  if (t.includes('link')) return 'URL'
+  return (fileType || 'FILE').slice(0, 4).toUpperCase()
+}
+
+function DocIcon({ label, color, big }) {
+  const w = big ? 64 : 48
+  return (
+    <svg className="doc-icon" width={w} height={w * 1.2} viewBox="0 0 48 58" fill="none" aria-hidden="true">
+      <path d="M6 4a4 4 0 0 1 4-4h20l12 12v42a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4V4Z" fill={`${color}14`} stroke={color} strokeOpacity="0.6" strokeWidth="1.5" />
+      <path d="M30 0v8a4 4 0 0 0 4 4h8" stroke={color} strokeOpacity="0.6" strokeWidth="1.5" />
+      <rect x="11" y="33" width="26" height="14" rx="3" fill={color} />
+      <text x="24" y="43.2" textAnchor="middle" fontFamily="var(--font-mono)" fontWeight="600" fontSize="9" letterSpacing="0.6" fill="#0D0A0E">{label}</text>
+      <path d="M12 20h18M12 25h12" stroke={color} strokeOpacity="0.5" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function copyLink(url) {
+  const ok = () => toast('Link copied')
+  const fail = () => toast('Could not copy that link.', { type: 'error' })
+  try {
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(ok, fail)
+    else fail()
+  } catch { fail() }
+}
 
 function Skeleton() {
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(270px, 1fr))', gap: 16 }}>
-      {[1,2,3,4].map(i => (
-        <div key={i} style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 12, padding: 22, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ width: 40, height: 40, borderRadius: 8, background: 'rgba(255,255,255,0.05)', marginBottom: 14 }} />
-          <div style={{ height: 14, width: '75%', background: 'rgba(255,255,255,0.07)', borderRadius: 4, marginBottom: 8 }} />
-          <div style={{ height: 11, width: '100%', background: 'rgba(255,255,255,0.04)', borderRadius: 4, marginBottom: 6 }} />
-          <div style={{ height: 11, width: '80%', background: 'rgba(255,255,255,0.04)', borderRadius: 4, marginBottom: 'auto' }} />
-          <div style={{ height: 1, background: 'var(--border)', margin: '16px 0 12px' }} />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ height: 10, width: '40%', background: 'rgba(255,255,255,0.04)', borderRadius: 4 }} />
-            <div style={{ height: 26, width: 70, background: 'rgba(255,255,255,0.04)', borderRadius: 5 }} />
-          </div>
+    <div className="rs-grid">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="rs-card">
+          <div className="shimmer" style={{ width: 48, height: 58, borderRadius: 8 }} />
+          <div className="shimmer" style={{ height: 16, width: '70%', borderRadius: 4 }} />
+          <div className="shimmer" style={{ height: 12, width: '100%', borderRadius: 4 }} />
+          <div className="shimmer" style={{ height: 12, width: '80%', borderRadius: 4 }} />
         </div>
       ))}
     </div>
+  )
+}
+
+function Actions({ res }) {
+  if (!res.file_url) return null
+  return (
+    <div className="rs-actions">
+      <a className="btn pink sm" href={res.file_url} target="_blank" rel="noopener noreferrer">Open ↗</a>
+      <button type="button" className="btn sm" onClick={() => copyLink(res.file_url)}>Copy link</button>
+    </div>
+  )
+}
+
+function Card({ res, isNew }) {
+  const c = colorOf(res.category)
+  return (
+    <article className="rs-card" style={{ '--c': c }}>
+      <div className="rs-top">
+        <DocIcon label={typeLabel(res.file_type)} color={c} />
+        <div className="rs-tags">
+          <span className="rs-cat">{res.category}</span>
+          {isNew && <span className="new-chip">New</span>}
+        </div>
+      </div>
+      <h3 className="rs-title">{res.title}</h3>
+      {res.description && <p className="rs-desc">{res.description}</p>}
+      <div className="rs-foot">
+        <span className="rs-type">{res.file_type}</span>
+        <Actions res={res} />
+      </div>
+    </article>
+  )
+}
+
+function Featured({ res, isNew }) {
+  const c = colorOf(res.category)
+  return (
+    <article className="rs-feature" style={{ '--c': c }}>
+      <div className="rs-feature-art"><DocIcon label={typeLabel(res.file_type)} color={c} big /></div>
+      <div className="rs-feature-body">
+        <div className="lib-eyebrow cyan"><span className="dot" />{isNew ? 'New' : 'Latest'} · {res.category}</div>
+        <h2 className="rs-feature-title">{res.title}</h2>
+        {res.description && <p className="rs-feature-desc">{res.description}</p>}
+        <div className="rs-foot flat">
+          <span className="rs-type">{res.file_type}{res.created_at && parseTs(res.created_at) ? ` · Added ${parseTs(res.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : ''}</span>
+          <Actions res={res} />
+        </div>
+      </div>
+    </article>
   )
 }
 
@@ -50,60 +129,53 @@ export default function Resources() {
     load()
   }, [])
 
+  // Only offer categories that actually have something in them.
+  const categories = useMemo(() => {
+    const counts = {}
+    resources.forEach(r => { if (r.category) counts[r.category] = (counts[r.category] || 0) + 1 })
+    return Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+  }, [resources])
+
+  const q = search.trim().toLowerCase()
   const visible = resources.filter(r => {
     const matchFilter = filter === 'All' || r.category === filter
-    const matchSearch = !search || r.title?.toLowerCase().includes(search.toLowerCase()) || r.description?.toLowerCase().includes(search.toLowerCase())
+    const matchSearch = !q || r.title?.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q) || r.category?.toLowerCase().includes(q)
     return matchFilter && matchSearch
   })
+
+  const showFeature = filter === 'All' && !q && visible.length >= 3
+  const feature = showFeature ? visible[0] : null
+  const rest = showFeature ? visible.slice(1) : visible
 
   return (
     <Layout>
       <div className="section-label">Library</div>
       <div className="section-title">Resources</div>
-      <p className="section-desc">Downloadable files, templates, and guides — all in one place.</p>
+      <p className="section-desc">Guides, templates, and the handouts from our skills calls. {resources.length > 0 ? `${resources.length} ${resources.length === 1 ? 'resource' : 'resources'} and counting.` : ''}</p>
 
       <div className="controls">
-        <input className="search-input" placeholder="Search resources..." value={search} onChange={e => setSearch(e.target.value)} />
-        <div className="filter-tags">
-          {FILTERS.map(f => (
-            <button key={f} className={`filter-tag${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>{f}</button>
-          ))}
-        </div>
+        <input className="search-input" type="search" placeholder="Search resources…" aria-label="Search resources" value={search} onChange={e => setSearch(e.target.value)} />
+        {categories.length > 1 && (
+          <div className="filter-tags">
+            <button className={`filter-tag${filter === 'All' ? ' active' : ''}`} onClick={() => setFilter('All')}>All · {resources.length}</button>
+            {categories.map(([cat, n]) => (
+              <button key={cat} className={`filter-tag${filter === cat ? ' active' : ''}`} onClick={() => setFilter(cat)}>{cat} · {n}</button>
+            ))}
+          </div>
+        )}
       </div>
 
       {loading ? <Skeleton /> : visible.length === 0 ? (
-        <div className="empty">No resources found.</div>
+        <div className="empty">{resources.length === 0 ? 'Nothing here yet — new guides land after each skills call.' : 'No resources match that search.'}</div>
       ) : (
-        <div className="card-grid">
-          {visible.map((res, idx) => {
-            const c = ICON_COLORS[res.category] || '#FF2D78'
-            const isNewest = idx === 0 && filter === 'All' && !search
-            const isNew = isNewSince(res.created_at, seenSnapshot)
-            return (
-              <div key={res.id} className="card" style={isNewest ? { borderColor: `${c}55`, background: `${c}08` } : {}}>
-                <div className="res-icon" style={{ background: `${c}18`, border: `1px solid ${c}33` }}>
-                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none">
-                    <rect x="2" y="2" width="12" height="14" rx="1.5" stroke={c} strokeWidth="1.3"/>
-                    <path d="M5 6h6M5 9h4" stroke={c} strokeWidth="1.3" strokeLinecap="round"/>
-                  </svg>
-                </div>
-                {(isNew || isNewest) && (
-                  <div style={{ position: 'absolute', top: 14, right: 14, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: c, background: `${c}20`, border: `1px solid ${c}40`, borderRadius: 4, padding: '2px 7px' }}>{isNew ? 'New' : 'Latest'}</div>
-                )}
-                <div className="res-title">{res.title}</div>
-                <div className="res-desc">{res.description}</div>
-                <div className="res-footer">
-                  <span className="res-type">{res.category} · {res.file_type}</span>
-                  {res.file_url && (
-                    <a className="dl-btn" href={res.file_url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}>
-                      {res.file_type === 'Link' ? 'Open' : 'Download'}
-                    </a>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <>
+          {feature && <Featured res={feature} isNew={isNewSince(feature.created_at, seenSnapshot)} />}
+          {rest.length > 0 && (
+            <div className="rs-grid">
+              {rest.map(res => <Card key={res.id} res={res} isNew={isNewSince(res.created_at, seenSnapshot)} />)}
+            </div>
+          )}
+        </>
       )}
     </Layout>
   )

@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
+import { toast } from '../components/Toaster'
+import { useSeenSnapshot, isNewSince } from '../lib/newSince'
 
 const CHANNELS = [
   {
@@ -11,7 +13,6 @@ const CHANNELS = [
         emoji: '📡',
         description: 'Everything happening across The Rad Pad in one place. Big conversations, cross-channel moments, and things worth the whole community seeing.',
         url: 'https://theradpad.slack.com/archives/C0A394HH11D',
-        link: { label: 'Open Member Hub', href: 'https://theradpad.org' },
       },
       {
         name: 'introductions',
@@ -35,7 +36,7 @@ const CHANNELS = [
       {
         name: 'mindset',
         emoji: '🧠',
-        description: "The mental side of running a business. Mindset, motivation, and the stuff nobody talks about enough.",
+        description: 'The mental side of running a business. Mindset, motivation, and the stuff nobody talks about enough.',
         url: 'https://theradpad.slack.com/archives/C0AJMULEY0P',
       },
     ],
@@ -114,7 +115,7 @@ const CHANNELS = [
         emoji: '📹',
         description: 'Call recordings, links, and updates. If you missed a call live, this is where you catch up.',
         url: 'https://theradpad.slack.com/archives/C0A78EGFV0C',
-        link: { label: 'View call log', href: 'https://docs.google.com/spreadsheets/d/15sytr2FPCEHvXFLrEKxlMEgTrH6cBEAjcASq0kzZWb4/edit?usp=sharing' },
+        link: { label: 'Call log', href: 'https://docs.google.com/spreadsheets/d/15sytr2FPCEHvXFLrEKxlMEgTrH6cBEAjcASq0kzZWb4/edit?usp=sharing' },
       },
     ],
   },
@@ -133,6 +134,8 @@ const CHANNELS = [
 ]
 
 const REFERRAL_URL = 'https://form.jotform.com/262156045622048'
+const CALENDAR_URL = 'https://calendar.google.com/calendar/embed?src=radpad2026%40gmail.com&ctz=America%2FEdmonton'
+const ICAL_URL = 'https://calendar.google.com/calendar/ical/radpad2026%40gmail.com/public/basic.ics'
 
 const REGIONAL_CHANNELS = [
   { name: 'region-canada', emoji: '🍁' },
@@ -161,125 +164,127 @@ const INTRO_ROWS = [
   { label: 'Fun fact', example: "I edit in DaVinci and play men's league hockey" },
 ]
 
-function AnnouncementCard({ item, isArchive }) {
-  const formatted = new Date(item.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+const TOTAL_CHANNELS = CHANNELS.reduce((n, g) => n + g.items.length, 0)
+
+// First line of an announcement is its headline; the rest is the body.
+function splitMessage(message) {
+  const lines = String(message || '').replace(/\r/g, '').split('\n')
+  const first = lines.findIndex(l => l.trim())
+  if (first === -1) return { title: '', body: '' }
+  return {
+    title: lines[first].trim().replace(/^📌\s*/, ''),
+    body: lines.slice(first + 1).join('\n').trim(),
+  }
+}
+
+function shortDate(iso) {
+  const d = new Date(iso)
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function copyText(text, okMessage) {
+  const done = () => toast(okMessage)
+  const fail = () => toast('Could not copy — long-press the link instead.', { type: 'error' })
+  try {
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fail)
+    else fail()
+  } catch { fail() }
+}
+
+// Announcements are typed with blank lines between every item; show them as
+// tight paragraphs so the text reads as one block instead of a staircase.
+function Paragraphs({ text, className }) {
+  const paras = text.split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+  return <div className={className}>{paras.map((p, i) => <p key={i}>{p}</p>)}</div>
+}
+
+function Bulletin({ item, isNew }) {
+  const { title, body } = splitMessage(item.message)
   return (
-    <div style={{
-      background: isArchive ? 'rgba(255,255,255,0.02)' : 'rgba(255,45,120,0.04)',
-      border: '1px solid ' + (isArchive ? 'var(--border)' : 'rgba(255,45,120,0.25)'),
-      borderRadius: 12,
-      padding: '18px 22px',
-      opacity: isArchive ? 0.6 : 1,
-    }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: isArchive ? 'var(--muted)' : 'var(--pink)', marginBottom: 8 }}>{formatted}</div>
-      <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{item.message}</div>
+    <div className="pad-bulletin">
+      <div className="pad-eyebrow">
+        <span>📌 Bulletin board</span>
+        {isNew && <span className="new-chip">New</span>}
+        <span className="date">{shortDate(item.created_at)}</span>
+      </div>
+      <h3>{title}</h3>
+      {body && <Paragraphs className="pad-body" text={body} />}
     </div>
   )
 }
 
-function ReferralCard() {
-  const [copied, setCopied] = useState(false)
-
-  function copyLink() {
-    navigator.clipboard.writeText(REFERRAL_URL)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
-
+function ReferCard() {
   return (
-    <div className="card" style={{ padding: '20px 24px' }}>
-      <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 6 }}>
-        Know someone who'd be a great fit? Send them this link.
-      </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: '0.04em', marginBottom: 14 }}>
-        This form is for the person joining to fill out — not you.
-      </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <span
-          onClick={copyLink}
-          style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11,
-            color: copied ? 'var(--cyan)' : 'var(--muted)',
-            background: copied ? 'rgba(0,245,228,0.07)' : 'rgba(255,255,255,0.04)',
-            border: '1px solid ' + (copied ? 'rgba(0,245,228,0.2)' : 'var(--border)'),
-            borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer',
-          }}
-        >
-          {copied ? '✓ Copied' : '📋 Copy Link'}
-        </span>
-        <span
-          onClick={() => window.open(REFERRAL_URL, '_blank')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', background: 'rgba(255,45,120,0.07)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
-        >
-          ↗ Refer a New Member
-        </span>
+    <div className="pad-refer">
+      <div className="pad-eyebrow cyan"><span>🤝 Refer someone</span></div>
+      <h3>Know someone who’d be a great fit?</h3>
+      <p>Send them this link. The form is for the person joining to fill out — not you.</p>
+      <div className="pad-actions">
+        <button type="button" className="btn cyan" onClick={() => copyText(REFERRAL_URL, 'Referral link copied')}>Copy link</button>
+        <a className="btn" href={REFERRAL_URL} target="_blank" rel="noopener noreferrer">Open form ↗</a>
       </div>
     </div>
   )
 }
 
 function ChannelCard({ channel }) {
+  const hasMore = channel.introFormat || channel.sellingServices || channel.regionalList
+  const moreLabel = channel.introFormat ? 'Intro format' : channel.sellingServices ? 'What’s allowed' : 'Regional channels'
   return (
-    <a href={channel.url} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-      <div className="card" style={{ gap: 0, padding: '16px 20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <span style={{ fontSize: 16 }}>{channel.emoji}</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', letterSpacing: '0.05em' }}>#{channel.name}</span>
-        </div>
+    <div className="ch">
+      <div className="ch-head">
+        <span className="ch-emoji" aria-hidden="true">{channel.emoji}</span>
+        <span className="ch-name">#{channel.name}</span>
+        <span className="ch-group-tag">{channel.group}</span>
+      </div>
+      <p className="ch-desc">{channel.description}</p>
+      {channel.note && <div className="ch-note">{channel.note}</div>}
 
-        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.55 }}>{channel.description}</div>
-
-        {channel.introFormat && (
-          <div style={{ marginTop: 12, background: 'rgba(0,245,228,0.05)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 8, padding: '10px 12px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Intro format</div>
-            {INTRO_ROWS.map(row => (
-              <div key={row.label} style={{ display: 'flex', gap: 8, marginBottom: 4, alignItems: 'baseline' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', minWidth: 56 }}>{row.label}</span>
-                <span style={{ fontSize: 11, color: 'var(--muted)' }}>{row.example}</span>
+      {hasMore && (
+        <details className="ch-more">
+          <summary>{moreLabel}</summary>
+          <div className="ch-detail">
+            {channel.introFormat && INTRO_ROWS.map(row => (
+              <div key={row.label} className="intro-row">
+                <span>{row.label}</span>
+                <span>{row.example}</span>
               </div>
             ))}
+            {channel.sellingServices && (
+              <>
+                <div className="chip-row">
+                  {SELLING_ALLOWED.map(s => <span key={s} className="chip">{s}</span>)}
+                </div>
+                <div className="ch-rule">1 post per quarter · No cold DMs · No leveraging the Pad to build your own paid program</div>
+              </>
+            )}
+            {channel.regionalList && (
+              <div className="chip-row">
+                {REGIONAL_CHANNELS.map(r => <span key={r.name} className="chip">{r.emoji} #{r.name}</span>)}
+              </div>
+            )}
           </div>
-        )}
+        </details>
+      )}
 
-        {channel.sellingServices && (
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
-              {SELLING_ALLOWED.map(s => (
-                <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 4, padding: '3px 8px' }}>{s}</span>
-              ))}
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', background: 'rgba(255,45,120,0.06)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '6px 10px', lineHeight: 1.6 }}>
-              1 post per quarter · No cold DMs · No leveraging the Pad to build your own paid program
-            </div>
-          </div>
-        )}
-
-        {channel.regionalList && (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-            {REGIONAL_CHANNELS.map(r => (
-              <span key={r.name} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 4, padding: '3px 8px' }}>
-                {r.emoji} #{r.name}
-              </span>
-            ))}
-          </div>
-        )}
-
-        {channel.note && (
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '5px 10px', marginTop: 10, lineHeight: 1.5 }}>
-            {channel.note}
-          </div>
-        )}
-
-        {channel.link && (
-          <span
-            onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(channel.link.href, '_blank') }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
-          >
-            ↗ {channel.link.label}
-          </span>
-        )}
+      <div className="ch-foot">
+        <a className="btn sm cyan" href={channel.url} target="_blank" rel="noopener noreferrer">Open in Slack ↗</a>
+        {channel.link && <a className="btn sm" href={channel.link.href} target="_blank" rel="noopener noreferrer">{channel.link.label} ↗</a>}
       </div>
-    </a>
+    </div>
+  )
+}
+
+function PreviousAnnouncement({ item }) {
+  const { title, body } = splitMessage(item.message)
+  return (
+    <details className="prev">
+      <summary>
+        <span className="prev-title">{title || 'Announcement'}</span>
+        <span className="prev-date">{shortDate(item.created_at)}</span>
+      </summary>
+      {body && <Paragraphs className="pad-body prev-body" text={body} />}
+    </details>
   )
 }
 
@@ -287,7 +292,10 @@ export default function ThePad() {
   const [announcements, setAnnouncements] = useState([])
   const [archived, setArchived] = useState([])
   const [loading, setLoading] = useState(true)
-  const [showMore, setShowMore] = useState(false)
+  const [search, setSearch] = useState('')
+  const [group, setGroup] = useState('All')
+  const [mapOpen, setMapOpen] = useState(false)
+  const seenSnapshot = useSeenSnapshot('announcements')
 
   useEffect(() => {
     async function load() {
@@ -302,90 +310,94 @@ export default function ThePad() {
     load()
   }, [])
 
-  const oldest = [...announcements.slice(1), ...archived]
+  useEffect(() => {
+    if (!mapOpen) return
+    const onKey = e => { if (e.key === 'Escape') setMapOpen(false) }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [mapOpen])
+
+  const q = search.trim().toLowerCase()
+  const channels = useMemo(() => CHANNELS
+    .filter(g => group === 'All' || g.group === group)
+    .flatMap(g => g.items.map(ch => ({ ...ch, group: g.group })))
+    .filter(ch => !q || `${ch.name} ${ch.description} ${ch.group}`.toLowerCase().includes(q)), [q, group])
+
+  const current = announcements[0]
+  const previous = [...announcements.slice(1), ...archived]
 
   return (
     <Layout>
       <div className="section-label">Community</div>
       <div className="section-title">The Pad</div>
-      <p className="section-desc">Everything you need to know about how this community works — channels, rules, and what's happening.</p>
+      <p className="section-desc">How this community works: what’s new, where to talk, and who to send our way.</p>
 
-      {!loading && announcements.length > 0 && (
-        <div style={{ marginBottom: 48 }}>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 36, letterSpacing: '0.04em', color: 'var(--pink)', marginBottom: 16, textShadow: '0 0 40px rgba(255,45,120,0.4), 0 0 80px rgba(255,45,120,0.15)' }}>📌 Bulletin Board</div>
-          <AnnouncementCard item={announcements[0]} isArchive={false} />
+      <div className="pad-top">
+        {!loading && current ? <Bulletin item={current} isNew={isNewSince(current.created_at, seenSnapshot)} /> : null}
+        <ReferCard />
+      </div>
+
+      <div className="pad-tools">
+        <input
+          className="search-input"
+          type="search"
+          placeholder={`Find a channel (${TOTAL_CHANNELS})…`}
+          aria-label="Find a channel"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <div className="filter-tags">
+          {['All', ...CHANNELS.map(g => g.group)].map(g => (
+            <button key={g} className={`filter-tag${group === g ? ' active' : ''}`} onClick={() => setGroup(g)}>{g}</button>
+          ))}
+        </div>
+      </div>
+
+      <div className="sec">
+        {channels.length === 0 ? (
+          <div className="empty">No channels match “{search}”.</div>
+        ) : (
+          <div className="ch-grid">
+            {channels.map(ch => <ChannelCard key={ch.name} channel={ch} />)}
+          </div>
+        )}
+        <p className="pad-fine">
+          Slack messages disappear after 90 days on our plan, so this is the permanent record of how each channel works.
+          {q || group !== 'All' ? ` Showing ${channels.length} of ${TOTAL_CHANNELS} channels.` : ''}
+        </p>
+      </div>
+
+      <div className="pad-pair">
+        <div className="pad-tile">
+          <div className="sec-head"><h2>Regional map</h2></div>
+          <button type="button" className="pad-map-btn" onClick={() => setMapOpen(true)} aria-label="Enlarge the regional channel map">
+            <img src="/regional-map.png" alt="The Rad Pad North America Regional Channel Map" loading="lazy" />
+            <span className="pad-map-hint">Tap to enlarge</span>
+          </button>
+        </div>
+        <div className="pad-tile">
+          <div className="sec-head"><h2>Community calendar</h2></div>
+          <p className="pad-tile-text">Add the iCal feed to sync every community call to your own calendar, or browse them in Google Calendar.</p>
+          <div className="pad-actions">
+            <a className="btn cyan" href={CALENDAR_URL} target="_blank" rel="noopener noreferrer">📅 Google Calendar ↗</a>
+            <a className="btn" href={ICAL_URL} target="_blank" rel="noopener noreferrer">📆 iCal feed ↗</a>
+          </div>
+        </div>
+      </div>
+
+      {previous.length > 0 && (
+        <div className="sec">
+          <div className="sec-head"><h2>Previous announcements</h2><span className="count">{previous.length}</span></div>
+          <div className="prev-list">
+            {previous.map(a => <PreviousAnnouncement key={a.id} item={a} />)}
+          </div>
         </div>
       )}
 
-      <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: 'var(--font-head)', fontSize: 36, letterSpacing: '0.04em', color: 'var(--cyan)', textShadow: '0 0 40px rgba(0,245,228,0.4), 0 0 80px rgba(0,245,228,0.15)', marginBottom: 16 }}>Refer Someone</div>
-        <ReferralCard />
-      </div>
-
-      <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: 'var(--font-head)', fontSize: 36, letterSpacing: '0.04em', color: 'var(--text)', marginBottom: 6 }}>Channel Guide</div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 28, lineHeight: 1.6 }}>
-          Slack messages disappear after 90 days on our plan — this is the permanent record of how each channel works. Click any channel to open it in Slack.
-        </div>
-        {CHANNELS.map(group => (
-          <div key={group.group} style={{ marginBottom: 36 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-              {group.group}
-            </div>
-           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
-              {group.items.map(ch => <ChannelCard key={ch.name} channel={ch} />)}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-          Regional Map
-        </div>
-        <img
-          src="/regional-map.png"
-          alt="The Rad Pad North America Regional Channel Map"
-          style={{ width: '100%', borderRadius: 12, border: '1px solid var(--border)' }}
-        />
-      </div>
-
-      <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
-          Community Calendar
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <span
-            onClick={() => window.open('https://calendar.google.com/calendar/embed?src=radpad2026%40gmail.com&ctz=America%2FEdmonton', '_blank')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
-          >
-            📅 View Google Calendar
-          </span>
-          <span
-            onClick={() => window.open('https://calendar.google.com/calendar/ical/radpad2026%40gmail.com/public/basic.ics', '_blank')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
-          >
-            📆 Add iCal Feed
-          </span>
-        </div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.06em' }}>
-          Add the iCal feed to sync community calls directly to your own calendar.
-        </div>
-      </div>
-
-      {oldest.length > 0 && (
-        <div>
-          <button
-            onClick={() => setShowMore(v => !v)}
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}
-          >
-            {showMore ? 'Hide' : 'Show'} Previous Announcements ({oldest.length})
-          </button>
-          {showMore && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {oldest.map(a => <AnnouncementCard key={a.id} item={a} isArchive={true} />)}
-            </div>
-          )}
+      {mapOpen && (
+        <div className="lightbox" role="dialog" aria-modal="true" aria-label="Regional channel map" onClick={() => setMapOpen(false)}>
+          <button type="button" className="lightbox-close" onClick={() => setMapOpen(false)} aria-label="Close">✕</button>
+          <img src="/regional-map.png" alt="The Rad Pad North America Regional Channel Map" onClick={e => e.stopPropagation()} />
         </div>
       )}
     </Layout>
