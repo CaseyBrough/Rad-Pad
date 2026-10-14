@@ -82,7 +82,7 @@ export function Field({ spec, form, onChange }) {
     control = (
       <select id={id} className="form-select" value={value} onChange={set}>
         {blankOption && <option value="">{blankOption}</option>}
-        {options.map(o => <option key={o}>{o}</option>)}
+        {options.map(o => (typeof o === 'string' ? <option key={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>))}
       </select>
     )
   } else {

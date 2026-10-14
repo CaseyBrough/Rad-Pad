@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import SidePanel from '../components/SidePanel'
 import CountUp from '../components/CountUp'
 import { toast } from '../components/Toaster'
-import { parseLocation, classifyIntl, REGION_FULL_NAMES, CA_PROVINCE_CODES } from '../lib/geo'
+import { REGION_FULL_NAMES } from '../lib/geo'
+import { placePin, AREAS, AREA_LABEL } from '../lib/placement'
 import { US_NATION_D, US_STATE_LINES_D, CANADA_D, CANADA_PROVINCE_LINES_D, MEXICO_D } from '../lib/mapPaths'
 import { REGIONS, regionOfCode, milesBetween } from '../lib/regions'
 
@@ -19,7 +20,6 @@ function project(lat, lon) {
 }
 
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v))
-const INTL_LABEL = { europe: 'Europe', oceania: 'Oceania' }
 
 function initialsOf(name) {
   const parts = name.replace(/\(.*?\)/g, '').trim().split(/\s+/).filter(Boolean)
@@ -53,13 +53,14 @@ function cityLabel(m) { return `${m.city}${m.region ? `, ${m.region}` : ''}` }
 function matchesQuery(m, f) {
   if (!f) return true
   const regionFull = REGION_FULL_NAMES[(m.region || '').toUpperCase()]
-  const hay = [m.name, m.city, m.region, m.country, regionFull, m.location, m.continent].filter(Boolean).join(' ').toLowerCase()
+  const hay = [m.name, m.city, m.region, m.country, regionFull, m.location, AREA_LABEL[m.area]].filter(Boolean).join(' ').toLowerCase()
   return hay.includes(f)
 }
 
 export default function MemberMap() {
   const [pins, setPins] = useState([])
   const [intl, setIntl] = useState([])
+  const [unplaced, setUnplaced] = useState([])
   const [loaded, setLoaded] = useState(false)
 
   const [view, setView] = useState({ z: 1, x: 0, y: 0 })
@@ -90,35 +91,37 @@ export default function MemberMap() {
   // ── data ──
   useEffect(() => {
     async function load() {
-      const { data } = await supabase.from('map_pins').select('name, location').eq('approved', true)
+      const { data } = await supabase.from('map_pins').select('name, location, map_area').eq('approved', true)
       const na = []
       const abroad = []
+      const lost = []
       ;(data || []).forEach(m => {
-        const parsed = parseLocation(m.location)
-        if (parsed) {
+        const where = placePin(m)
+        if (where.kind === 'na') {
+          const parsed = where.parsed
           const [x, y] = project(parsed.lat, parsed.lon)
-          const isCanada = CA_PROVINCE_CODES.has(parsed.region)
           na.push({
             id: `${m.name}|${m.location}|${na.length}`,
             name: m.name,
             location: m.location,
             city: parsed.city,
             region: parsed.region || '',
-            country: isCanada ? 'Canada' : 'USA',
+            country: where.country,
             // 'precise' = matched an actual city; 'approximate' = no city match,
             // fell back to the state/province centre.
             confidence: parsed.precision === 'city' ? 'precise' : 'approximate',
             lat: parsed.lat, lon: parsed.lon, x, y,
             group: regionOfCode(parsed.region),
           })
-          return
+        } else if (where.kind === 'intl') {
+          abroad.push({ id: `${m.name}|${m.location}`, name: m.name, location: m.location.replace(/[.\s]+$/, ''), area: where.area })
+        } else {
+          lost.push({ id: `${m.name}|${m.location}`, name: m.name, location: m.location.replace(/[.\s]+$/, '') })
         }
-        const continent = classifyIntl(m.location)
-        // Anyone we can't place stays in the admin queue, just not drawn here.
-        if (continent) abroad.push({ id: `${m.name}|${m.location}`, name: m.name, location: m.location.replace(/[.\s]+$/, ''), continent })
       })
       setPins(na)
       setIntl(abroad)
+      setUnplaced(lost)
       setLoaded(true)
     }
     load()
@@ -269,9 +272,9 @@ export default function MemberMap() {
     }
     const na = pins.filter(m => inRegion(m) && matchesQuery(m, f))
       .sort((a, b) => a.name.localeCompare(b.name))
-    const abroad = regionId ? [] : intl.filter(m => matchesQuery(m, f)).sort((a, b) => a.name.localeCompare(b.name))
-    return [...na, ...abroad]
-  }, [pins, intl, mode, origin, f, regionId])
+    const others = regionId ? [] : [...intl, ...unplaced].filter(m => matchesQuery(m, f)).sort((a, b) => a.name.localeCompare(b.name))
+    return [...na, ...others]
+  }, [pins, intl, unplaced, mode, origin, f, regionId])
 
   const activeSpotKeys = useMemo(() => {
     const keys = new Set()
@@ -288,7 +291,7 @@ export default function MemberMap() {
   }, [pins])
   const states = new Set(pins.map(m => m.region).filter(Boolean)).size
   const top = REGIONS.filter(r => regionCounts[r.id]).sort((a, b) => regionCounts[b.id] - regionCounts[a.id])[0]
-  const total = pins.length + intl.length
+  const total = pins.length + intl.length + unplaced.length
   const approximate = pins.filter(m => m.confidence === 'approximate').length
 
   // ── tooltip ──
@@ -480,9 +483,21 @@ export default function MemberMap() {
           </div>
 
           {intl.length > 0 && (
-            <div className="mp-intl">
-              <span className="mp-intl-label">🌍 Beyond North America</span>
-              {intl.map(m => <span key={m.id} className="chip" title={m.location}>{m.name.split(' ')[0]} · {INTL_LABEL[m.continent]}</span>)}
+            <div className="mp-abroad">
+              <div className="mp-abroad-head">🌍 Beyond North America <span>{intl.length}</span></div>
+              <div className="mp-pods">
+                {AREAS.filter(a => intl.some(m => m.area === a.id)).map(a => (
+                  <div key={a.id} className="mp-pod">
+                    <div className="mp-pod-name">{a.emoji} {a.label}</div>
+                    {intl.filter(m => m.area === a.id).map(m => (
+                      <div key={m.id} className="mp-pod-m" title={m.location}>
+                        <span className="mp-av intl sm">{initialsOf(m.name)}</span>
+                        <span className="mp-who"><span className="mp-name">{m.name}</span><span className="mp-where">{m.location}</span></span>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -522,7 +537,7 @@ export default function MemberMap() {
                     <span className={`mp-av${m.confidence === 'approximate' ? ' ring' : ''}${!spot ? ' intl' : ''}`}>{initialsOf(m.name)}</span>
                     <span className="mp-who">
                       <span className="mp-name">{m.name}</span>
-                      <span className="mp-where">{spot ? cityLabel(m) : `${m.location} · ${INTL_LABEL[m.continent]}`}</span>
+                      <span className="mp-where">{spot ? cityLabel(m) : m.area ? `${m.location} · ${AREA_LABEL[m.area]}` : `${m.location} · not on the map yet`}</span>
                     </span>
                     {m.miles != null && <span className="mp-miles">{m.miles < 10 ? 'Local' : `${Math.round(m.miles).toLocaleString()} mi`}</span>}
                   </Tag>

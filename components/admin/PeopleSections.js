@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAdmin } from './AdminContext'
 import { PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches } from './ui'
+import { AREA_OPTIONS, describePlacement } from '../../lib/placement'
 
 const sub = (...p) => p.filter(Boolean).join(' · ')
 
@@ -12,7 +13,7 @@ function initialsOf(name = '') {
 
 // Shared shape for Members and Map Pins: approved rows only (pending ones live
 // in Approvals), searchable, edited in a slide-over, removed with undo.
-function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, row, noun }) {
+function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, row, noun, extra }) {
   const { toast, refreshCounts, deleteWithUndo, isHidden } = useAdmin()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -85,6 +86,7 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
               <Field key={f.key} spec={f} form={panel.form} onChange={(k, v) => setPanel(p => ({ ...p, form: { ...p.form, [k]: v } }))} />
             ))}
           </div>
+          {extra && extra(panel.form)}
         </SidePanel>
       )}
     </>
@@ -120,9 +122,25 @@ export function PinsSection() {
       table="map_pins" noun="Pin" title="Map Pins"
       subtitle="Everyone shown on the /map page. Separate from the Directory - editing a pin never touches a Directory profile."
       searchHint="Search by name or location…"
-      fields={[{ key: 'name', label: 'Name', required: true }, { key: 'location', label: 'Location' }]}
+      fields={[
+        { key: 'name', label: 'Name', required: true },
+        { key: 'location', label: 'Location' },
+        { key: 'map_area', label: 'Where it shows on the map', type: 'select', options: AREA_OPTIONS, full: true },
+      ]}
       searchText={p => [p.name, p.location]}
-      row={p => ({ title: p.name, meta: p.location })}
+      row={p => {
+        const d = describePlacement(p)
+        return { title: p.name, meta: <>{p.location}<span className={`adm-place ${d.ok ? 'ok' : 'warn'}`}>{d.text}</span></> }
+      }}
+      extra={form => {
+        const d = describePlacement(form)
+        return (
+          <div className={`adm-place-box ${d.ok ? 'ok' : 'warn'}`}>
+            <b>{d.ok ? 'Will show as' : 'Not placed'}</b> {d.text}
+            <p>Members outside North America can’t be pinned on this map, so they appear in a “Beyond North America” area next to it, grouped by where they are. Leave this on Automatic unless someone lands in the wrong spot.</p>
+          </div>
+        )
+      }}
     />
   )
 }

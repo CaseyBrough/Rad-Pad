@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAdmin } from './AdminContext'
 import { PageHeader, Loading } from './ui'
+import { describePlacement } from '../../lib/placement'
 
 const sub = (...p) => p.filter(Boolean).join(' · ')
 
@@ -91,7 +92,7 @@ export default function ApprovalsSection() {
                     <div className="adm-approval-top">
                       <div className="adm-approval-body">
                         <div className="adm-row-title" style={{ whiteSpace: 'normal' }}>{x.name}</div>
-                        <div className="adm-row-meta" style={{ whiteSpace: 'normal' }}>{x.location}</div>
+                        <div className="adm-row-meta" style={{ whiteSpace: 'normal' }}>{x.location}{(() => { const d = describePlacement(x); return <span className={`adm-place ${d.ok ? 'ok' : 'warn'}`}>{d.text}</span> })()}</div>
                       </div>
                       {actions(() => approve('map_pins', x.id, `${x.name} added to the map`), () => decline('map_pins', x.id, x.name))}
                     </div>

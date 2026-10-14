@@ -1,8 +1,13 @@
 import { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import Layout from '../components/Layout'
+import Thumb from '../components/Thumb'
+import Countdown, { useNow } from '../components/Countdown'
+import AddToCalendar from '../components/AddToCalendar'
 import { supabase } from '../lib/supabase'
 import { toast } from '../components/Toaster'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
+import { eventSpan, formatInViewerZone, isNotice } from '../lib/calendar'
 
 const CHANNELS = [
   {
@@ -213,17 +218,74 @@ function Bulletin({ item, isNew }) {
   )
 }
 
-function ReferCard() {
+const typeClass = t => (t === 'Skills Call' ? 'tag-amber' : t === 'Theme Call' ? 'tag-purple' : 'tag-cyan')
+
+function NextCall({ loaded, next, now }) {
   return (
-    <div className="pad-refer">
-      <div className="pad-eyebrow cyan"><span>🤝 Refer someone</span></div>
-      <h3>Know someone who’d be a great fit?</h3>
-      <p>Send them this link. The form is for the person joining to fill out — not you.</p>
-      <div className="pad-actions">
-        <button type="button" className="btn cyan" onClick={() => copyText(REFERRAL_URL, 'Referral link copied')}>Copy link</button>
-        <a className="btn" href={REFERRAL_URL} target="_blank" rel="noopener noreferrer">Open form ↗</a>
+    <section className="next-card pad-next" aria-label="Next call">
+      {!loaded || !now ? (
+        <>
+          <div className="shimmer" style={{ height: 12, width: 110, borderRadius: 4, marginBottom: 18 }} />
+          <div className="shimmer" style={{ height: 28, width: '70%', borderRadius: 6, marginBottom: 14 }} />
+          <div className="shimmer" style={{ height: 64, width: '80%', borderRadius: 8, marginTop: 22 }} />
+        </>
+      ) : next ? (
+        <>
+          <div className="next-top">
+            <span className="lib-eyebrow cyan"><span className="dot" />{next.span.startMs <= now && !next.span.allDay ? 'Live now' : 'Next call'}</span>
+            {next.ev.type && <span className={`tag ${typeClass(next.ev.type)}`}>{next.ev.type}</span>}
+          </div>
+          <h2 className="next-title">{next.ev.title}</h2>
+          <div className="next-when">
+            <span><b>{[new Date(`${next.ev.event_date}T00:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }), next.ev.time].filter(Boolean).join(' · ')}</b></span>
+            {next.span.hasZone && <span className="next-local">Your time: {formatInViewerZone(next.span.startMs)}</span>}
+          </div>
+          <Countdown startMs={next.span.startMs} endMs={next.span.endMs} allDay={next.span.allDay} />
+          <div className="next-actions">
+            {next.ev.zoom_url && <a className="btn-join" href={next.ev.zoom_url} target="_blank" rel="noopener noreferrer">Join on Zoom</a>}
+            <AddToCalendar ev={next.ev} />
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="next-top"><span className="lib-eyebrow cyan"><span className="dot" />Next call</span></div>
+          <h2 className="next-title">To be announced</h2>
+          <p className="next-desc">Calls are usually posted one to two weeks out.</p>
+          <div className="next-actions"><Link className="next-link" href="/calendar" style={{ marginLeft: 0 }}>Open the calendar →</Link></div>
+        </>
+      )}
+    </section>
+  )
+}
+
+function StartHere({ guidelinesUrl }) {
+  const intro = CHANNELS[0].items.find(c => c.name === 'introductions')
+  const tiles = [
+    { n: 1, title: 'Say hello', text: 'Drop a quick intro so people know who you are and what you’re building.', cta: 'Open #introductions', href: intro.url, external: true },
+    { n: 2, title: 'Read the guidelines', text: 'How we show up for each other, in one short read.', cta: guidelinesUrl ? 'Read them' : 'Open resources', href: guidelinesUrl || '/resources', external: !!guidelinesUrl },
+    { n: 3, title: 'Join a call', text: 'Weekly community calls, shown in your own time zone.', cta: 'See the schedule', href: '/calendar' },
+    { n: 4, title: 'Refer someone', text: 'Know a great fit? Send them our form. It’s for them to fill out, not you.', cta: 'Copy the link', action: () => copyText(REFERRAL_URL, 'Referral link copied') },
+  ]
+  return (
+    <section className="sec">
+      <div className="sec-head"><h2>Start here</h2></div>
+      <div className="start-grid">
+        {tiles.map(t => {
+          const inner = (
+            <>
+              <span className="start-n">{t.n}</span>
+              <b>{t.title}</b>
+              <span className="start-text">{t.text}</span>
+              <span className="start-cta">{t.cta} {t.external ? '↗' : '→'}</span>
+            </>
+          )
+          if (t.action) return <button key={t.n} type="button" className="start-tile" onClick={t.action}>{inner}</button>
+          return t.external
+            ? <a key={t.n} className="start-tile" href={t.href} target="_blank" rel="noopener noreferrer">{inner}</a>
+            : <Link key={t.n} className="start-tile" href={t.href}>{inner}</Link>
+        })}
       </div>
-    </div>
+    </section>
   )
 }
 
@@ -289,8 +351,12 @@ function PreviousAnnouncement({ item }) {
 }
 
 export default function ThePad() {
+  const now = useNow(30000)
   const [announcements, setAnnouncements] = useState([])
   const [archived, setArchived] = useState([])
+  const [events, setEvents] = useState([])
+  const [recordings, setRecordings] = useState([])
+  const [guidelinesUrl, setGuidelinesUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [group, setGroup] = useState('All')
@@ -299,12 +365,20 @@ export default function ThePad() {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('announcements')
-        .select('*')
-        .order('created_at', { ascending: false })
-      setAnnouncements((data || []).filter(a => !a.archived))
-      setArchived((data || []).filter(a => a.archived))
+      const y = new Date(Date.now() - 86400000)
+      const since = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`
+      const [ann, ev, rec, guide] = await Promise.all([
+        supabase.from('announcements').select('*').order('created_at', { ascending: false }),
+        supabase.from('events').select('*').gte('event_date', since).order('event_date', { ascending: true }).limit(8),
+        supabase.from('recordings').select('id,title,date,duration,host,video_url,call_type,sub_topic').order('date', { ascending: false }).limit(4),
+        supabase.from('resources').select('file_url').ilike('title', '%guidelines%').limit(1),
+      ])
+      const data = ann.data || []
+      setAnnouncements(data.filter(a => !a.archived))
+      setArchived(data.filter(a => a.archived))
+      setEvents(ev.data || [])
+      setRecordings(rec.data || [])
+      setGuidelinesUrl(guide.data?.[0]?.file_url || '')
       setLoading(false)
     }
     load()
@@ -316,6 +390,15 @@ export default function ThePad() {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [mapOpen])
+
+  const next = useMemo(() => {
+    if (!now) return null
+    return events
+      .filter(ev => !isNotice(ev))
+      .map(ev => ({ ev, span: eventSpan(ev) }))
+      .filter(x => x.span && x.span.endMs > now)
+      .sort((a, b) => a.span.startMs - b.span.startMs)[0] || null
+  }, [events, now])
 
   const q = search.trim().toLowerCase()
   const channels = useMemo(() => CHANNELS
@@ -330,13 +413,16 @@ export default function ThePad() {
     <Layout>
       <div className="section-label">Community</div>
       <div className="section-title">The Pad</div>
-      <p className="section-desc">How this community works: what’s new, where to talk, and who to send our way.</p>
+      <p className="section-desc">How this community works: what’s new, where to talk, and how to get the most out of it.</p>
 
-      <div className="pad-top">
+      <div className={`pad-top${current ? '' : ' solo'}`}>
         {!loading && current ? <Bulletin item={current} isNew={isNewSince(current.created_at, seenSnapshot)} /> : null}
-        <ReferCard />
+        <NextCall loaded={!loading} next={next} now={now} />
       </div>
 
+      <StartHere guidelinesUrl={guidelinesUrl} />
+
+      <div className="sec-head pad-find-head"><h2>Channels</h2><span className="count">{TOTAL_CHANNELS}</span></div>
       <div className="pad-tools">
         <input
           className="search-input"
@@ -366,6 +452,24 @@ export default function ThePad() {
           {q || group !== 'All' ? ` Showing ${channels.length} of ${TOTAL_CHANNELS} channels.` : ''}
         </p>
       </div>
+
+      {recordings.length > 0 && (
+        <section className="sec">
+          <div className="sec-head"><h2>Catch up on a call</h2><Link className="sec-link" href="/recordings">All calls →</Link></div>
+          <div className="rail">
+            {recordings.map(rec => (
+              <Link key={rec.id} href={{ pathname: '/recordings', query: { v: rec.id } }} className="rec-card" aria-label={`Play ${rec.title}`}>
+                <Thumb rec={rec} />
+                <div className="rc-body">
+                  {rec.call_type && <span className={`tag ${typeClass(rec.call_type)}`}>{rec.call_type}{rec.sub_topic ? ` · ${rec.sub_topic}` : ''}</span>}
+                  <div className="rc-title">{rec.title}</div>
+                  <div className="rc-meta">{[rec.date, rec.host && rec.host.replace(/\.\s*$/, '')].filter(Boolean).join('  ·  ')}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       <div className="pad-pair">
         <div className="pad-tile">

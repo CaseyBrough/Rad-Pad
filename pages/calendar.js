@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import Layout from '../components/Layout'
 import AddToCalendar from '../components/AddToCalendar'
+import MonthGrid from '../components/MonthGrid'
 import { useNow } from '../components/Countdown'
 import { supabase } from '../lib/supabase'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
@@ -116,8 +117,10 @@ export default function Calendar() {
         <a className="cta-btn" href={CALENDLY_URL} target="_blank" rel="noopener noreferrer">Book a Slot →</a>
       </div>
 
-      {loading ? <Skeleton /> : (
+      {loading || !now ? <Skeleton /> : (
         <>
+          <MonthGrid events={events.filter(hasDate)} now={now} recordingByDate={recordingByDate} bookUrl={CALENDLY_URL} />
+
           {upcoming.length === 0 ? (
             <div className="empty-card">
               <div style={{ fontSize: 32, marginBottom: 14 }}>📅</div>
