@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import '../styles/globals.css'
+import '../styles/admin.css'
 import { supabase } from '../lib/supabase'
 
 // /login has its own form, no gate needed.
