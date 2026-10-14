@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+import { useId } from 'react'
 
 const PATHS = {
   overview: <><rect x="2" y="2" width="5" height="5" rx="1" /><rect x="9" y="2" width="5" height="5" rx="1" /><rect x="2" y="9" width="5" height="5" rx="1" /><rect x="9" y="9" width="5" height="5" rx="1" /></>,
@@ -99,48 +99,5 @@ export function Field({ spec, form, onChange }) {
   )
 }
 
-// Slide-over form panel. Esc / backdrop click closes it; Enter in a text field
-// submits; page scroll is locked while it's open.
-export function SidePanel({ title, onClose, onSubmit, saving, canSave = true, submitLabel = 'Save', children }) {
-  const bodyRef = useRef(null)
-  // Callers pass a fresh onClose every render; keep the latest in a ref so the
-  // setup below runs once on open (not on every keystroke, which would steal
-  // focus back to the first field).
-  const closeRef = useRef(onClose)
-  closeRef.current = onClose
-
-  useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') closeRef.current() }
-    document.addEventListener('keydown', onKey)
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    bodyRef.current?.querySelector('input, textarea, select')?.focus()
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prev
-    }
-  }, [])
-
-  return (
-    <>
-      <div className="adm-overlay" onClick={onClose} />
-      <form
-        className="adm-panel"
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        onSubmit={e => { e.preventDefault(); if (canSave && !saving) onSubmit() }}
-      >
-        <div className="adm-panel-head">
-          <h2>{title}</h2>
-          <button type="button" className="adm-top-btn" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
-        </div>
-        <div className="adm-panel-body" ref={bodyRef}>{children}</div>
-        <div className="adm-panel-foot">
-          <button type="submit" className="adm-btn primary" disabled={!canSave || saving}>{saving ? 'Saving…' : submitLabel}</button>
-          <button type="button" className="adm-btn" onClick={onClose}>Cancel</button>
-        </div>
-      </form>
-    </>
-  )
-}
+// The slide-over panel is shared with the member pages.
+export { default as SidePanel } from '../SidePanel'

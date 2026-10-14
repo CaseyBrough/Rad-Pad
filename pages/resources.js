@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
+import { useSeenSnapshot, isNewSince } from '../lib/newSince'
 
 const FILTERS = ['All', 'Templates', 'Guides', 'Scripts', 'Finance']
 
@@ -31,6 +32,7 @@ export default function Resources() {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('All')
   const [search, setSearch] = useState('')
+  const seenSnapshot = useSeenSnapshot('resources')
 
   useEffect(() => {
     async function load() {
@@ -69,6 +71,7 @@ export default function Resources() {
           {visible.map((res, idx) => {
             const c = ICON_COLORS[res.category] || '#FF2D78'
             const isNewest = idx === 0 && filter === 'All' && !search
+            const isNew = isNewSince(res.created_at, seenSnapshot)
             return (
               <div key={res.id} className="card" style={isNewest ? { borderColor: `${c}55`, background: `${c}08` } : {}}>
                 <div className="res-icon" style={{ background: `${c}18`, border: `1px solid ${c}33` }}>
@@ -77,8 +80,8 @@ export default function Resources() {
                     <path d="M5 6h6M5 9h4" stroke={c} strokeWidth="1.3" strokeLinecap="round"/>
                   </svg>
                 </div>
-                {isNewest && (
-                  <div style={{ position: 'absolute', top: 14, right: 14, fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em', textTransform: 'uppercase', color: c, background: `${c}20`, border: `1px solid ${c}40`, borderRadius: 4, padding: '2px 7px' }}>New</div>
+                {(isNew || isNewest) && (
+                  <div style={{ position: 'absolute', top: 14, right: 14, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: c, background: `${c}20`, border: `1px solid ${c}40`, borderRadius: 4, padding: '2px 7px' }}>{isNew ? 'New' : 'Latest'}</div>
                 )}
                 <div className="res-title">{res.title}</div>
                 <div className="res-desc">{res.description}</div>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import Link from 'next/link'
 import { supabase } from '../lib/supabase'
+import { useNewCounts, summarizeNew } from '../lib/newSince'
 
 const QUICK = [
   {
@@ -30,6 +31,7 @@ export default function Home() {
   const [latestRec, setLatestRec] = useState(null)
   const [nextEvent, setNextEvent] = useState(null)
   const [announcement, setAnnouncement] = useState(null)
+  const whatsNew = summarizeNew(useNewCounts(null))
 
   useEffect(() => {
     async function load() {
@@ -78,18 +80,29 @@ export default function Home() {
           </p>
         </div>
 
+        {whatsNew.length > 0 && (
+          <div className="whatsnew" role="status">
+            <span className="whatsnew-label">Since your last visit</span>
+            <span className="whatsnew-items">
+              {whatsNew.map(item => (
+                <Link key={item.href} href={item.href}>{item.count} new {item.label}</Link>
+              ))}
+            </span>
+          </div>
+        )}
+
         {(latestRec || nextEvent) && (
           <div style={{ display: 'grid', gridTemplateColumns: latestRec && nextEvent ? '1fr 1fr' : '1fr', gap: 16, marginBottom: 40 }}>
             {latestRec && (
               <Link href="/recordings" style={{ textDecoration: 'none' }}>
                 <div style={{ background: 'linear-gradient(135deg, rgba(255,45,120,0.12), rgba(255,45,120,0.04))', border: '1px solid rgba(255,45,120,0.3)', borderRadius: 14, padding: '22px 24px', cursor: 'pointer', transition: 'all 0.22s', height: '100%' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--pink)', display: 'inline-block', boxShadow: '0 0 6px var(--pink)' }} />
                     Latest Recording
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text)', marginBottom: 6, lineHeight: 1.3 }}>{latestRec.title}</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>{latestRec.description}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', display: 'flex', gap: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 14 }}>
                     <span>{latestRec.date}</span>
                     {latestRec.duration && <span style={{ color: 'var(--cyan)' }}>{latestRec.duration}</span>}
                     {latestRec.host && <span>Host: {latestRec.host}</span>}
@@ -100,13 +113,13 @@ export default function Home() {
             {nextEvent && (
               <Link href="/calendar" style={{ textDecoration: 'none' }}>
                 <div style={{ background: 'linear-gradient(135deg, rgba(0,245,228,0.08), rgba(0,245,228,0.02))', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 14, padding: '22px 24px', cursor: 'pointer', transition: 'all 0.22s', height: '100%' }}>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', display: 'inline-block', boxShadow: '0 0 6px var(--cyan)' }} />
                     Up Next
                   </div>
                   <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text)', marginBottom: 6, lineHeight: 1.3 }}>{nextEvent.title}</div>
                   <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 12, lineHeight: 1.5 }}>{nextEvent.description}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', display: 'flex', gap: 14 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', display: 'flex', gap: 14 }}>
                     <span>{nextEvent.event_date}</span>
                     {nextEvent.time && <span>{nextEvent.time}</span>}
                     {nextEvent.type && <span style={{ color: 'var(--cyan)' }}>{nextEvent.type}</span>}
@@ -136,14 +149,14 @@ export default function Home() {
             >
               <span style={{ fontSize: 16, marginTop: 1 }}>📌</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 6 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--pink)', marginBottom: 6 }}>
                   Bulletin Board · {new Date(announcement.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                 </div>
                 <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.6, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
                   {announcement.message}
                 </div>
               </div>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', whiteSpace: 'nowrap', marginTop: 2 }}>View all →</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', whiteSpace: 'nowrap', marginTop: 2 }}>View all →</span>
             </div>
           </Link>
         )}

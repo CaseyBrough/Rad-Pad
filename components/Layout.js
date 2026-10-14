@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import { NEW_SECTIONS, useNewCounts, markSeen } from '../lib/newSince'
+import Toaster from './Toaster'
 
 const NAV = [
   {
@@ -42,6 +44,15 @@ export default function Layout({ children }) {
   const { pathname } = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
 
+  // "New since your last visit" counts for the nav. The section you're on reads
+  // 0, and opening a section marks it as seen for next time.
+  const currentKey = NEW_SECTIONS[pathname]?.key
+  const newCounts = useNewCounts(currentKey)
+  const anyNew = !!newCounts && Object.values(newCounts).some(n => n > 0)
+  useEffect(() => {
+    if (currentKey) markSeen(currentKey)
+  }, [currentKey])
+
   // Below the 768px breakpoint the sidebar becomes a slide-in drawer -
   // close it automatically on every navigation so it doesn't stay open
   // over the new page.
@@ -66,6 +77,7 @@ export default function Layout({ children }) {
           aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
           aria-expanded={mobileOpen}
         >
+          {anyNew && !mobileOpen && <span className="menu-dot" aria-hidden="true" />}
           {mobileOpen ? (
             <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
           ) : (
@@ -83,24 +95,28 @@ export default function Layout({ children }) {
           <span className="logo-sub">Members Hub</span>
         </div>
         <nav>
-          {NAV.map(({ href, label, icon }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`nav-item${pathname === href ? ' active' : ''}`}
-            >
-              {icon}
-              {label}
-            </Link>
-          ))}
+          {NAV.map(({ href, label, icon }) => {
+            const n = newCounts?.[NEW_SECTIONS[href]?.key] || 0
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`nav-item${pathname === href ? ' active' : ''}`}
+              >
+                {icon}
+                {label}
+                {n > 0 && <span className="nav-badge" aria-label={`${n} new`}>{n > 9 ? '9+' : n}</span>}
+              </Link>
+            )
+          })}
         </nav>
         <div className="sidebar-footer">
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.14em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>
             Referral-Only Community
           </div>
           <button
             onClick={logout}
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 9, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}
+            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '6px 10px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}
           >
             Log Out
           </button>
@@ -109,6 +125,7 @@ export default function Layout({ children }) {
       <main className="main">
         {children}
       </main>
+      <Toaster />
     </div>
   )
 }

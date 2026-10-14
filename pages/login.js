@@ -49,7 +49,7 @@ export default function Login() {
       <div style={{ width: '100%', maxWidth: 420 }}>
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <div style={{ fontFamily: 'var(--font-display)', fontSize: 48, color: 'var(--pink)', textShadow: '0 0 44px rgba(255,45,120,0.8)', marginBottom: 6 }}>The Rad Pad</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted)' }}>Members Hub</div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--muted)' }}>Members Hub</div>
         </div>
 
         <div style={{ background: 'var(--card)', border: '1px solid var(--border)', borderRadius: 16, padding: '32px 30px' }}>
@@ -60,7 +60,7 @@ export default function Login() {
               <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 20 }}>
                 We sent a sign-in link to <span style={{ color: 'var(--text)' }}>{email.trim()}</span>. Click it to get in — you can close this tab.
               </div>
-              <button onClick={reset} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 18px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <button onClick={reset} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 18px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                 Use a different email
               </button>
             </div>
@@ -71,7 +71,7 @@ export default function Login() {
               <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.65, marginBottom: 20 }}>
                 <span style={{ color: 'var(--text)' }}>{email.trim()}</span> isn't approved for access. Reach out in the community if you think this is a mistake.
               </div>
-              <button onClick={reset} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 18px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
+              <button onClick={reset} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 18px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
                 Try another email
               </button>
             </div>

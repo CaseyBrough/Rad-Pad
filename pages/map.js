@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
+import SidePanel from '../components/SidePanel'
+import { toast } from '../components/Toaster'
 import { parseLocation, classifyIntl, REGION_FULL_NAMES, CA_PROVINCE_CODES } from '../lib/geo'
 import { US_NATION_D, US_STATE_LINES_D, CANADA_D, CANADA_PROVINCE_LINES_D, MEXICO_D } from '../lib/mapPaths'
 
@@ -80,7 +82,7 @@ function SideRail({ label, members }) {
       alignItems: 'center',
       gap: 12,
     }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cyan)', textAlign: 'center', lineHeight: 1.3 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cyan)', textAlign: 'center', lineHeight: 1.3 }}>
         {label}
       </div>
       {members.map(m => (
@@ -88,12 +90,12 @@ function SideRail({ label, members }) {
           <div style={{
             width: 26, height: 26, borderRadius: '50%', flexShrink: 0,
             background: 'rgba(0,245,228,0.55)', color: '#04201d',
-            fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 9.5,
+            fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 11,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             {initialsOf(m.name)}
           </div>
-          <div style={{ fontSize: 8.5, color: 'var(--muted)', lineHeight: 1.25 }}>{m.name.split(' ')[0]}</div>
+          <div style={{ fontSize: 11, color: 'var(--muted)', lineHeight: 1.25 }}>{m.name.split(' ')[0]}</div>
         </div>
       ))}
     </div>
@@ -240,7 +242,9 @@ export default function MemberMap() {
       return
     }
     setSaving(false)
+    setShowForm(false)
     setSubmitted(true)
+    toast("You're in the queue — your pin will appear once it's approved.")
   }
 
   return (
@@ -253,10 +257,11 @@ export default function MemberMap() {
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-        {!showForm && !submitted && (
+        {submitted && <span className="pending-pill">✓ Pin sent for review</span>}
+        {!submitted && (
           <button
             onClick={() => setShowForm(true)}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'rgba(255,45,120,0.15)', border: '1px solid rgba(255,45,120,0.35)', borderRadius: 8, padding: '10px 18px', color: 'var(--pink)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'rgba(255,45,120,0.15)', border: '1px solid rgba(255,45,120,0.35)', borderRadius: 8, padding: '10px 18px', color: 'var(--pink)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
             onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 20px rgba(255,45,120,0.35)'}
             onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
           >
@@ -265,38 +270,28 @@ export default function MemberMap() {
         )}
       </div>
 
-      {showForm && !submitted && (
-        <div style={{ background: 'var(--card)', border: '1px solid rgba(255,45,120,0.25)', borderRadius: 14, padding: 24, marginBottom: 28 }}>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.04em', marginBottom: 6 }}>Add Yourself</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 20, lineHeight: 1.6 }}>Just for the map — separate from your Directory listing. Reviewed before it goes live, usually within 24 hours.</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <div className="form-group">
-              <label className="form-label">Full Name *</label>
-              <input className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Casey O'Farrell" style={{ fontFamily: 'inherit' }} />
+      {showForm && (
+        <SidePanel
+          title="Add yourself to the map"
+          onClose={() => setShowForm(false)}
+          onSubmit={submitLocation}
+          saving={saving}
+          canSave={!!name.trim() && !!location.trim()}
+          submitLabel="Submit for review"
+        >
+          <p className="panel-note">Just for the map — separate from your Directory listing. Reviewed before it goes live, usually within 24 hours.</p>
+          <div className="adm-form-grid">
+            <div className="form-group full">
+              <label className="form-label" htmlFor="map-name">Full name *</label>
+              <input id="map-name" className="form-input" value={name} onChange={e => setName(e.target.value)} placeholder="Casey O'Farrell" />
             </div>
-            <div className="form-group">
-              <label className="form-label">Location *</label>
-              <input className="form-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="Charleston, SC" style={{ fontFamily: 'inherit' }} />
+            <div className="form-group full">
+              <label className="form-label" htmlFor="map-loc">Location *</label>
+              <input id="map-loc" className="form-input" value={location} onChange={e => setLocation(e.target.value)} placeholder="Charleston, SC" />
             </div>
           </div>
-          {formError && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', marginBottom: 12 }}>{formError}</div>}
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button className="submit-btn" style={{ margin: 0 }} onClick={submitLocation} disabled={saving}>
-              {saving ? 'Submitting...' : 'Submit for Review'}
-            </button>
-            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '11px 20px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {submitted && (
-        <div style={{ background: 'rgba(0,245,228,0.06)', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 14, padding: '24px 28px', marginBottom: 28, textAlign: 'center' }}>
-          <div style={{ fontSize: 24, marginBottom: 10 }}>📍</div>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 18, letterSpacing: '0.04em', marginBottom: 6 }}>You're in the queue</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>Your pin will appear once it's approved.</div>
-        </div>
+          {formError && <div className="panel-error">{formError}</div>}
+        </SidePanel>
       )}
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'stretch', flexWrap: 'wrap', marginBottom: 18 }}>
@@ -426,7 +421,7 @@ export default function MemberMap() {
 
         <div style={{
           position: 'absolute', bottom: 10, left: 12,
-          fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.06em',
+          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em',
           color: 'rgba(216,212,232,0.55)', background: 'rgba(9,7,13,0.6)',
           padding: '4px 8px', borderRadius: 6, pointerEvents: 'none',
         }}>
@@ -436,7 +431,7 @@ export default function MemberMap() {
         <SideRail label="Europe" members={INTL_MERGED.filter(i => i.region === 'europe')} />
       </div>
 
-      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', marginBottom: 28, fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.06em', color: 'var(--muted)' }}>
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', alignItems: 'center', marginBottom: 28, fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.06em', color: 'var(--muted)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span style={{ width: 11, height: 11, borderRadius: '50%', background: 'var(--pink)', display: 'inline-block' }} />
           EXACT CITY
@@ -480,7 +475,7 @@ export default function MemberMap() {
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</div>
-                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10.5, color: 'var(--muted)' }}>{m.city}{m.region ? `, ${m.region}` : ''}</div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>{m.city}{m.region ? `, ${m.region}` : ''}</div>
                 </div>
               </div>
             )

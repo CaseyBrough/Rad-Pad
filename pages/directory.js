@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import Layout from '../components/Layout'
 import { supabase } from '../lib/supabase'
+import SidePanel from '../components/SidePanel'
+import { toast } from '../components/Toaster'
 
 const SPECIALTIES = [
   'Brand Films', 'Paid Ads', 'Social Content', 'Event Coverage',
@@ -65,6 +67,7 @@ export default function Directory() {
     setError('')
 
     let photo_url = ''
+    let photoFailed = false
     if (photoFile) {
       const ext = photoFile.name.split('.').pop()
       const filename = `${Date.now()}.${ext}`
@@ -72,7 +75,7 @@ export default function Directory() {
         .from('member-photos')
         .upload(filename, photoFile, { contentType: photoFile.type })
       if (uploadError) {
-        setError(`Photo upload failed: ${uploadError.message}. Your profile will be submitted without a photo — you can ask to add one later.`)
+        photoFailed = true
         photo_url = ''
       } else {
         const { data: urlData } = supabase.storage.from('member-photos').getPublicUrl(filename)
@@ -90,7 +93,14 @@ export default function Directory() {
     const { error: insertError } = await supabase.from('members').insert([{ ...cleanedForm, photo_url, approved: false }])
     if (insertError) { setError('Submission failed. Try again.'); setSaving(false); return }
     setSaving(false)
+    setShowForm(false)
     setSubmitted(true)
+    toast(
+      photoFailed
+        ? "Profile sent for review — but your photo didn't upload. Ask an admin to add it."
+        : "You're in the queue — your profile will appear once it's approved.",
+      { duration: photoFailed ? 8000 : 5000, type: photoFailed ? 'error' : 'success' }
+    )
   }
 
   const visible = members.filter(m =>
@@ -113,10 +123,11 @@ export default function Directory() {
           value={search}
           onChange={e => setSearch(e.target.value)}
         />
-        {!showForm && !submitted && (
+        {submitted && <span className="pending-pill">✓ Profile sent for review</span>}
+        {!submitted && (
           <button
             onClick={() => setShowForm(true)}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'rgba(255,45,120,0.15)', border: '1px solid rgba(255,45,120,0.35)', borderRadius: 8, padding: '10px 18px', color: 'var(--pink)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', background: 'rgba(255,45,120,0.15)', border: '1px solid rgba(255,45,120,0.35)', borderRadius: 8, padding: '10px 18px', color: 'var(--pink)', cursor: 'pointer', transition: 'all 0.2s', whiteSpace: 'nowrap' }}
             onMouseEnter={e => e.currentTarget.style.boxShadow = '0 0 20px rgba(255,45,120,0.35)'}
             onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
           >
@@ -125,87 +136,65 @@ export default function Directory() {
         )}
       </div>
 
-      {/* SUBMIT FORM */}
-      {showForm && !submitted && (
-        <div style={{ background: 'var(--card)', border: '1px solid rgba(255,45,120,0.25)', borderRadius: 14, padding: 28, marginBottom: 36 }}>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, letterSpacing: '0.04em', marginBottom: 6 }}>Join the Directory</div>
-          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24, lineHeight: 1.6 }}>Your profile will be reviewed before it goes live — usually within 24 hours.</div>
+      {showForm && (
+        <SidePanel
+          title="Join the Directory"
+          onClose={() => setShowForm(false)}
+          onSubmit={submit}
+          saving={saving}
+          canSave={!!form.name.trim() && !!form.specialty}
+          submitLabel="Submit for review"
+        >
+          <p className="panel-note">Your profile will be reviewed before it goes live — usually within 24 hours.</p>
 
-          {/* Photo upload */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 20 }}>
-            <div style={{ width: 72, height: 72, borderRadius: '50%', background: photoPreview ? 'transparent' : 'rgba(255,255,255,0.06)', border: '1px solid var(--border)', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {photoPreview
-                ? <img src={photoPreview} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : <span style={{ fontSize: 24 }}>👤</span>
-              }
+          <div className="photo-pick">
+            <div className="avatar">
+              {photoPreview ? <img src={photoPreview} alt="Your photo preview" /> : <span aria-hidden="true">👤</span>}
             </div>
             <div>
-              <label style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--cyan)', background: 'rgba(0,245,228,0.08)', border: '1px solid rgba(0,245,228,0.22)', borderRadius: 6, padding: '7px 14px', cursor: 'pointer', display: 'inline-block' }}>
-                Upload Photo
+              <label className="pick">
+                {photoPreview ? 'Change photo' : 'Upload photo'}
                 <input type="file" accept="image/*" onChange={handlePhoto} style={{ display: 'none' }} />
               </label>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', marginTop: 6, letterSpacing: '0.05em' }}>JPG or PNG</div>
+              <div className="more-count" style={{ marginTop: 8 }}>JPG or PNG</div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+          <div className="adm-form-grid">
             <div className="form-group">
-              <label className="form-label">Full Name *</label>
-              <input className="form-input" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="Casey Brough" style={{ fontFamily: 'inherit' }} />
-            </div>
-            <div className="form-group">
-              <label className="form-label">Location</label>
-              <input className="form-input" value={form.location} onChange={e => setField('location', e.target.value)} placeholder="Charleston, SC" style={{ fontFamily: 'inherit' }} />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 12 }} className="form-group">
-            <label className="form-label">Specialty *</label>
-            <select className="form-select" value={form.specialty} onChange={e => setField('specialty', e.target.value)} style={{ fontFamily: 'inherit' }}>
-              <option value="">Select...</option>
-              {SPECIALTIES.map(s => <option key={s}>{s}</option>)}
-            </select>
-          </div>
-
-          <div style={{ marginBottom: 12 }} className="form-group">
-            <label className="form-label">One-line bio</label>
-            <input className="form-input" value={form.bio} onChange={e => setField('bio', e.target.value)} placeholder="I make brand films for service businesses in the Southeast." style={{ fontFamily: 'inherit' }} />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
-            <div className="form-group">
-              <label className="form-label">Website</label>
-              <input className="form-input" value={form.website} onChange={e => setField('website', e.target.value)} placeholder="yoursite.com" style={{ fontFamily: 'inherit' }} />
+              <label className="form-label" htmlFor="dir-name">Full name *</label>
+              <input id="dir-name" className="form-input" value={form.name} onChange={e => setField('name', e.target.value)} placeholder="Casey Brough" />
             </div>
             <div className="form-group">
-              <label className="form-label">LinkedIn</label>
-              <input className="form-input" value={form.linkedin} onChange={e => setField('linkedin', e.target.value)} placeholder="linkedin.com/in/yourname" style={{ fontFamily: 'inherit' }} />
+              <label className="form-label" htmlFor="dir-loc">Location</label>
+              <input id="dir-loc" className="form-input" value={form.location} onChange={e => setField('location', e.target.value)} placeholder="Charleston, SC" />
+            </div>
+            <div className="form-group full">
+              <label className="form-label" htmlFor="dir-spec">Specialty *</label>
+              <select id="dir-spec" className="form-select" value={form.specialty} onChange={e => setField('specialty', e.target.value)}>
+                <option value="">Select...</option>
+                {SPECIALTIES.map(sp => <option key={sp}>{sp}</option>)}
+              </select>
+            </div>
+            <div className="form-group full">
+              <label className="form-label" htmlFor="dir-bio">One-line bio</label>
+              <input id="dir-bio" className="form-input" value={form.bio} onChange={e => setField('bio', e.target.value)} placeholder="I make brand films for service businesses in the Southeast." />
+            </div>
+            <div className="form-group full">
+              <label className="form-label" htmlFor="dir-web">Website</label>
+              <input id="dir-web" className="form-input" value={form.website} onChange={e => setField('website', e.target.value)} placeholder="yoursite.com" />
             </div>
             <div className="form-group">
-              <label className="form-label">Instagram</label>
-              <input className="form-input" value={form.instagram} onChange={e => setField('instagram', e.target.value)} placeholder="instagram.com/yourhandle" style={{ fontFamily: 'inherit' }} />
+              <label className="form-label" htmlFor="dir-li">LinkedIn</label>
+              <input id="dir-li" className="form-input" value={form.linkedin} onChange={e => setField('linkedin', e.target.value)} placeholder="linkedin.com/in/yourname" />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="dir-ig">Instagram</label>
+              <input id="dir-ig" className="form-input" value={form.instagram} onChange={e => setField('instagram', e.target.value)} placeholder="instagram.com/yourhandle" />
             </div>
           </div>
-
-          {error && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', marginBottom: 12 }}>{error}</div>}
-
-          <div style={{ display: 'flex', gap: 12 }}>
-            <button className="submit-btn" style={{ margin: 0 }} onClick={submit} disabled={saving}>
-              {saving ? 'Submitting...' : 'Submit for Review'}
-            </button>
-            <button onClick={() => setShowForm(false)} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '11px 20px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {submitted && (
-        <div style={{ background: 'rgba(0,245,228,0.06)', border: '1px solid rgba(0,245,228,0.25)', borderRadius: 14, padding: '28px 32px', marginBottom: 36, textAlign: 'center' }}>
-          <div style={{ fontSize: 28, marginBottom: 12 }}>✅</div>
-          <div style={{ fontFamily: 'var(--font-head)', fontSize: 20, letterSpacing: '0.04em', marginBottom: 8 }}>You're in the queue</div>
-          <div style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.65 }}>Your profile has been submitted for review. You'll appear in the directory once it's approved — usually within 24 hours.</div>
-        </div>
+          {error && <div className="panel-error">{error}</div>}
+        </SidePanel>
       )}
 
       {/* DIRECTORY GRID */}
@@ -222,7 +211,7 @@ export default function Directory() {
                 }
               </div>
               <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>{m.name}</div>
-              {m.location && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', color: 'var(--muted)', textTransform: 'uppercase' }}>{m.location}</div>}
+              {m.location && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.1em', color: 'var(--muted)', textTransform: 'uppercase' }}>{m.location}</div>}
               {m.specialty && (
                 <span className="tag tag-pink" style={{ alignSelf: 'center' }}>{m.specialty}</span>
               )}
@@ -230,17 +219,17 @@ export default function Directory() {
               {(m.website || m.linkedin || m.instagram) && (
                 <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginTop: 4, flexWrap: 'wrap' }}>
                   {m.website && (
-                    <a href={m.website} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cyan)', background: 'rgba(0,245,228,0.08)', border: '1px solid rgba(0,245,228,0.22)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
+                    <a href={m.website} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--cyan)', background: 'rgba(0,245,228,0.08)', border: '1px solid rgba(0,245,228,0.22)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
                       Website
                     </a>
                   )}
                   {m.linkedin && (
-                    <a href={m.linkedin} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.22)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
+                    <a href={m.linkedin} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.22)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
                       LinkedIn
                     </a>
                   )}
                   {m.instagram && (
-                    <a href={m.instagram} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B47EFF', background: 'rgba(160,100,255,0.1)', border: '1px solid rgba(160,100,255,0.25)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
+                    <a href={m.instagram} target="_blank" rel="noopener noreferrer" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#B47EFF', background: 'rgba(160,100,255,0.1)', border: '1px solid rgba(160,100,255,0.25)', borderRadius: 5, padding: '4px 10px', textDecoration: 'none' }}>
                       Instagram
                     </a>
                   )}

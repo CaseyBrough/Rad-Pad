@@ -171,7 +171,7 @@ function AnnouncementCard({ item, isArchive }) {
       padding: '18px 22px',
       opacity: isArchive ? 0.6 : 1,
     }}>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.12em', textTransform: 'uppercase', color: isArchive ? 'var(--muted)' : 'var(--pink)', marginBottom: 8 }}>{formatted}</div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: isArchive ? 'var(--muted)' : 'var(--pink)', marginBottom: 8 }}>{formatted}</div>
       <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{item.message}</div>
     </div>
   )
@@ -191,14 +191,14 @@ function ReferralCard() {
       <div style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 6 }}>
         Know someone who'd be a great fit? Send them this link.
       </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', letterSpacing: '0.04em', marginBottom: 14 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', letterSpacing: '0.04em', marginBottom: 14 }}>
         This form is for the person joining to fill out — not you.
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <span
           onClick={copyLink}
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10,
+            display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11,
             color: copied ? 'var(--cyan)' : 'var(--muted)',
             background: copied ? 'rgba(0,245,228,0.07)' : 'rgba(255,255,255,0.04)',
             border: '1px solid ' + (copied ? 'rgba(0,245,228,0.2)' : 'var(--border)'),
@@ -209,7 +209,7 @@ function ReferralCard() {
         </span>
         <span
           onClick={() => window.open(REFERRAL_URL, '_blank')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--pink)', background: 'rgba(255,45,120,0.07)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', background: 'rgba(255,45,120,0.07)', border: '1px solid rgba(255,45,120,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
         >
           ↗ Refer a New Member
         </span>
@@ -231,10 +231,10 @@ function ChannelCard({ channel }) {
 
         {channel.introFormat && (
           <div style={{ marginTop: 12, background: 'rgba(0,245,228,0.05)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 8, padding: '10px 12px' }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Intro format</div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 8 }}>Intro format</div>
             {INTRO_ROWS.map(row => (
               <div key={row.label} style={{ display: 'flex', gap: 8, marginBottom: 4, alignItems: 'baseline' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--pink)', minWidth: 56 }}>{row.label}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', minWidth: 56 }}>{row.label}</span>
                 <span style={{ fontSize: 11, color: 'var(--muted)' }}>{row.example}</span>
               </div>
             ))}
@@ -245,10 +245,10 @@ function ChannelCard({ channel }) {
           <div style={{ marginTop: 12 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
               {SELLING_ALLOWED.map(s => (
-                <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 4, padding: '3px 8px' }}>{s}</span>
+                <span key={s} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 4, padding: '3px 8px' }}>{s}</span>
               ))}
             </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--pink)', background: 'rgba(255,45,120,0.06)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '6px 10px', lineHeight: 1.6 }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', background: 'rgba(255,45,120,0.06)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '6px 10px', lineHeight: 1.6 }}>
               1 post per quarter · No cold DMs · No leveraging the Pad to build your own paid program
             </div>
           </div>
@@ -257,7 +257,7 @@ function ChannelCard({ channel }) {
         {channel.regionalList && (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
             {REGIONAL_CHANNELS.map(r => (
-              <span key={r.name} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 4, padding: '3px 8px' }}>
+              <span key={r.name} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.15)', borderRadius: 4, padding: '3px 8px' }}>
                 {r.emoji} #{r.name}
               </span>
             ))}
@@ -265,7 +265,7 @@ function ChannelCard({ channel }) {
         )}
 
         {channel.note && (
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '5px 10px', marginTop: 10, lineHeight: 1.5 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--pink)', background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.15)', borderRadius: 6, padding: '5px 10px', marginTop: 10, lineHeight: 1.5 }}>
             {channel.note}
           </div>
         )}
@@ -273,7 +273,7 @@ function ChannelCard({ channel }) {
         {channel.link && (
           <span
             onClick={e => { e.preventDefault(); e.stopPropagation(); window.open(channel.link.href, '_blank') }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--cyan)', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 12, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', letterSpacing: '0.08em', textTransform: 'uppercase', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}
           >
             ↗ {channel.link.label}
           </span>
@@ -329,7 +329,7 @@ export default function ThePad() {
         </div>
         {CHANNELS.map(group => (
           <div key={group.group} style={{ marginBottom: 36 }}>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
               {group.group}
             </div>
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 10 }}>
@@ -340,7 +340,7 @@ export default function ThePad() {
       </div>
 
       <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
           Regional Map
         </div>
         <img
@@ -351,24 +351,24 @@ export default function ThePad() {
       </div>
 
       <div style={{ marginBottom: 48 }}>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--cyan)', marginBottom: 14, paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
           Community Calendar
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <span
             onClick={() => window.open('https://calendar.google.com/calendar/embed?src=radpad2026%40gmail.com&ctz=America%2FEdmonton', '_blank')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--cyan)', background: 'rgba(0,245,228,0.07)', border: '1px solid rgba(0,245,228,0.2)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
           >
             📅 View Google Calendar
           </span>
           <span
             onClick={() => window.open('https://calendar.google.com/calendar/ical/radpad2026%40gmail.com/public/basic.ics', '_blank')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 14px', letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}
           >
             📆 Add iCal Feed
           </span>
         </div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.06em' }}>
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', marginTop: 8, letterSpacing: '0.06em' }}>
           Add the iCal feed to sync community calls directly to your own calendar.
         </div>
       </div>
@@ -377,7 +377,7 @@ export default function ThePad() {
         <div>
           <button
             onClick={() => setShowMore(v => !v)}
-            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 10, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}
+            style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 16px', color: 'var(--muted)', fontFamily: 'var(--font-mono)', fontSize: 11, cursor: 'pointer', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 16 }}
           >
             {showMore ? 'Hide' : 'Show'} Previous Announcements ({oldest.length})
           </button>
