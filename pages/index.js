@@ -9,8 +9,9 @@ import { supabase } from '../lib/supabase'
 import { useNewCounts, summarizeNew } from '../lib/newSince'
 import { eventSpan, formatInViewerZone, calendarDaysUntil, isNotice } from '../lib/calendar'
 import { durationMinutes } from '../lib/youtube'
+import { callTypeTag } from '../lib/callTypes'
 
-const typeClass = t => (t === 'Community Call' ? 'tag-cyan' : t === 'Skills Call' ? 'tag-amber' : t === 'Theme Call' ? 'tag-purple' : 'tag-cyan')
+const typeClass = t => callTypeTag(t)
 
 function relativeDay(ms, now) {
   const days = calendarDaysUntil(ms, now)

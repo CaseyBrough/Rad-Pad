@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import AddToCalendar from './AddToCalendar'
 import { CALL_WEEKDAYS, eventSpan, formatInViewerZone, isNotice } from '../lib/calendar'
+import { callTypeDot } from '../lib/callTypes'
 
 // Month view of the call schedule. A filled dot is a booked call; an open dot is
 // a standing call day with nothing booked yet; a dash is a "no call" notice.
@@ -11,6 +12,7 @@ const pad = n => String(n).padStart(2, '0')
 const key = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`
 
 function dotColor(type) {
+  if (callTypeDot(type)) return callTypeDot(type)
   if (type === 'Skills Call' || type === 'Workshop') return 'amber'
   if (type === 'Q&A' || type === 'Mindset' || type === 'Theme Call' || type === 'Hot Seat') return 'purple'
   if (type === 'Live') return 'pink'

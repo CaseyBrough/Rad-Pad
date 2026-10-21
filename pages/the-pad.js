@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { toast } from '../components/Toaster'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
 import { eventSpan, formatInViewerZone, isNotice } from '../lib/calendar'
+import { callTypeTag } from '../lib/callTypes'
 
 const CHANNELS = [
   {
@@ -218,7 +219,7 @@ function Bulletin({ item, isNew }) {
   )
 }
 
-const typeClass = t => (t === 'Skills Call' ? 'tag-amber' : t === 'Theme Call' ? 'tag-purple' : 'tag-cyan')
+const typeClass = t => callTypeTag(t)
 
 function NextCall({ loaded, next, now }) {
   return (

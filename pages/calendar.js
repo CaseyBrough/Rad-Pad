@@ -7,6 +7,7 @@ import { useNow } from '../components/Countdown'
 import { supabase } from '../lib/supabase'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
 import { eventSpan, formatInViewerZone, calendarDaysUntil, hasDate, isNotice } from '../lib/calendar'
+import { callTypeTag } from '../lib/callTypes'
 
 const CALENDLY_URL = 'https://calendly.com/radpad2026/2hrs?month=2026-04'
 
@@ -18,7 +19,7 @@ function getTagColor(type) {
   if (type === 'Mindset') return 'tag-purple'
   if (type === 'Skills Call') return 'tag-amber'
   if (type === 'Q&A') return 'tag-purple'
-  return 'tag-cyan'
+  return callTypeTag(type)
 }
 
 function dateParts(dateStr) {

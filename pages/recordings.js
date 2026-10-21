@@ -6,15 +6,10 @@ import Thumb from '../components/Thumb'
 import { supabase } from '../lib/supabase'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
 import { durationMinutes, formatHours } from '../lib/youtube'
+import { CALL_TYPES, OPTIONAL_CALL_TYPES, callTypeTag } from '../lib/callTypes'
 
-function getTypeColor(type) {
-  if (type === 'Community Call') return 'tag-cyan'
-  if (type === 'Skills Call') return 'tag-amber'
-  if (type === 'Theme Call') return 'tag-purple'
-  return 'tag-amber'
-}
+const getTypeColor = type => callTypeTag(type, 'tag-amber')
 
-const FILTERS = ['All', 'Community Call', 'Skills Call', 'Theme Call']
 const PAGE_SIZE = 12
 
 // Hosts are typed by hand, so the same person shows up as "Casey O.",
@@ -203,7 +198,7 @@ export default function Recordings() {
       <div className="controls">
         <input className="search-input" placeholder="Search calls, topics, hosts..." value={search} onChange={e => setSearch(e.target.value)} />
         <div className="filter-tags">
-          {FILTERS.map(f => (
+          {['All', ...CALL_TYPES.filter(t => !OPTIONAL_CALL_TYPES.has(t) || recordings.some(r => r.call_type === t))].map(f => (
             <button key={f} className={`filter-tag${filter === f ? ' active' : ''}`} onClick={() => setFilter(f)}>{f}</button>
           ))}
         </div>

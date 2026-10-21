@@ -2,7 +2,8 @@
 // data: table, form fields, default values, and how a row is summarised.
 // ContentSection renders all four from this - adding a field is one line here.
 
-const CALL_TYPES = ['Community Call', 'Skills Call', 'Theme Call']
+import { CALL_TYPES, SUB_TOPIC_PLACEHOLDER } from '../../lib/callTypes'
+
 const RES_CATS = ['Templates', 'Guides', 'Scripts', 'Finance']
 const FILE_TYPES = ['PDF', 'Notion', 'Google Sheets', 'Google Doc', 'Link']
 const LINK_CATS = ['Software', 'Gear', 'Finance', 'Education']
@@ -40,7 +41,7 @@ export const CONTENT = {
       { key: 'date', label: 'Date', type: 'date' },
       { key: 'duration', label: 'Duration', placeholder: '58m' },
       { key: 'call_type', label: 'Call type', type: 'select', options: CALL_TYPES, blankOption: 'Select type…' },
-      { key: 'sub_topic', label: 'Sub-topic', optional: true, full: true, showIf: f => f.call_type === 'Skills Call' || f.call_type === 'Theme Call', placeholder: f => (f.call_type === 'Skills Call' ? 'e.g. DaVinci Resolve' : 'e.g. Pricing') },
+      { key: 'sub_topic', label: 'Sub-topic', optional: true, full: true, showIf: f => !!SUB_TOPIC_PLACEHOLDER[f.call_type], placeholder: f => SUB_TOPIC_PLACEHOLDER[f.call_type] },
       { key: 'video_url', label: 'Video URL', placeholder: 'https://…', full: true },
       { key: 'description', label: 'Description', type: 'textarea', full: true },
     ],
