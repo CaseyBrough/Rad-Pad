@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import { markExplicitLogout } from '../lib/gate'
 import { NEW_SECTIONS, useNewCounts, markSeen } from '../lib/newSince'
 import Toaster from './Toaster'
 import CommandPalette from './CommandPalette'
@@ -62,6 +63,7 @@ export default function Layout({ children }) {
   }, [pathname])
 
   async function logout() {
+    markExplicitLogout()
     await supabase.auth.signOut()
     window.location.href = '/login'
   }

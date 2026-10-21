@@ -1,10 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { readGateNote, clearGateNote } from '../lib/gate'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState('idle') // idle | checking | sent | not-approved | error
   const [error, setError] = useState('')
+  const [note, setNote] = useState(null)
+
+  // If the hub just sent a signed-in member back here, say why (once).
+  useEffect(() => {
+    const n = readGateNote()
+    if (n && n.hadSession && n.kind === 'login' && n.reason !== 'logout' && n.reason !== 'not-approved') setNote(n)
+    clearGateNote()
+  }, [])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -77,6 +86,12 @@ export default function Login() {
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
+              {note && (
+                <div style={{ marginBottom: 18, padding: '10px 12px', borderRadius: 8, background: 'rgba(255,45,120,0.08)', border: '1px solid rgba(255,45,120,0.25)', fontSize: 13, lineHeight: 1.55, color: 'var(--text)', textAlign: 'center' }}>
+                  Your sign-in wasn’t recognized, so please sign in again.
+                  <div style={{ marginTop: 4, fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)' }}>code: {note.reason}</div>
+                </div>
+              )}
               <div style={{ fontFamily: 'var(--font-head)', fontSize: 22, letterSpacing: '0.04em', marginBottom: 6, textAlign: 'center' }}>Sign In</div>
               <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 24, textAlign: 'center', lineHeight: 1.6 }}>
                 Enter your email and we'll send you a link — no password needed.
