@@ -555,3 +555,11 @@
 .adm-place-box.warn { border-color: rgba(255, 45, 120, 0.4); background: rgba(255, 45, 120, 0.08); }
 .adm-place-box b { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; margin-right: 6px; }
 .adm-place-box p { margin-top: 8px; color: var(--muted); font-size: 12.5px; }
+
+/* Revoke membership panel */
+.adm-checks { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+.adm-checks label { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.5; color: var(--text); cursor: pointer; }
+.adm-checks input { margin-top: 4px; accent-color: var(--pink); }
+.adm-checks span { color: var(--muted); }
+.adm-revoke-prev { display: block; width: 100%; height: 420px; border: 1px solid var(--border); border-radius: 10px; background: #0D0A0E; }
+.adm-test { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }

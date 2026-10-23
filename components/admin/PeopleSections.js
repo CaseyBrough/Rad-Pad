@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAdmin } from './AdminContext'
 import { PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches } from './ui'
 import { AREA_OPTIONS, describePlacement } from '../../lib/placement'
+import RevokePanel from './RevokePanel'
 
 const sub = (...p) => p.filter(Boolean).join(' · ')
 
@@ -175,6 +176,7 @@ export function AccessSection() {
   const [bulkText, setBulkText] = useState('')
   const [preview, setPreview] = useState(null)
   const [importing, setImporting] = useState(false)
+  const [revoking, setRevoking] = useState(null)
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from('authorized_emails').select('*').order('created_at', { ascending: false })
@@ -269,6 +271,7 @@ export function AccessSection() {
                     <div className="adm-row-meta" style={a.name ? undefined : { fontSize: 13, color: 'var(--text)' }}>{a.email}</div>
                   </div>
                   <div className="adm-row-actions">
+                    <button className="adm-btn cyan sm" onClick={() => setRevoking(a)}>Revoke…</button>
                     <button className="adm-btn danger sm" onClick={() => deleteWithUndo({ table: 'authorized_emails', id: a.id, label: a.email, onDone: load })}>Remove</button>
                   </div>
                 </div>
@@ -277,6 +280,7 @@ export function AccessSection() {
           )}
         </>
       )}
+      {revoking && <RevokePanel row={revoking} onClose={() => setRevoking(null)} onDone={load} />}
     </>
   )
 }
