@@ -91,7 +91,7 @@ export const CONTENT = {
   link: {
     label: 'Link', plural: 'Links', table: 'links', orderCol: 'created_at',
     sub: 'Tools and resources on the Links page. Member suggestions wait in Approvals first.',
-    blank: { name: '', description: '', url: '', category: 'Software', emoji: '' },
+    blank: { name: '', description: '', url: '', category: 'Software', emoji: '', perk_code: '', perk_note: '' },
     required: ['name', 'url'],
     // Links added here go live immediately - the approval step only applies to
     // member-submitted suggestions from /links.
@@ -100,13 +100,15 @@ export const CONTENT = {
     sorts: [byAdded, byAZ],
     labelKey: 'name',
     searchText: i => [i.name, i.category, i.url, i.description],
-    row: i => ({ icon: i.emoji || '🔗', title: i.name || '(untitled)', meta: dot(i.category, hostOf(i.url)) }),
+    row: i => ({ icon: i.emoji || '🔗', title: i.name || '(untitled)', meta: dot(i.category, hostOf(i.url), i.perk_code && `🎟 ${i.perk_code}`) }),
     fields: [
       { key: 'name', label: 'Name', required: true, placeholder: 'HoneyBook' },
       { key: 'emoji', label: 'Emoji', placeholder: '📋' },
       { key: 'url', label: 'URL', required: true, placeholder: 'https://…', full: true },
       { key: 'category', label: 'Category', type: 'select', options: LINK_CATS, full: true },
       { key: 'description', label: 'Description', type: 'textarea', full: true },
+      { key: 'perk_code', label: 'Discount code', optional: true, placeholder: 'e.g. RADPAD50' },
+      { key: 'perk_note', label: 'What the discount gets you', optional: true, placeholder: 'e.g. 50% off a Pro account' },
     ],
   },
 }

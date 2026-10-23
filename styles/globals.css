@@ -1396,7 +1396,9 @@ a.rec-card { text-decoration: none; }
 .lk-cat, .lk-badge { padding: 3px 9px; border-radius: 5px; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; }
 .lk-cat { color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); border: 1px solid color-mix(in srgb, var(--c) 30%, transparent); }
 .lk-badge { color: var(--pink); background: rgba(255, 45, 120, 0.1); border: 1px solid rgba(255, 45, 120, 0.3); }
-.lk-perk { position: relative; z-index: 2; padding: 3px 9px; border-radius: 5px; border: 1px dashed rgba(255, 180, 50, 0.7); background: rgba(255, 180, 50, 0.1); color: #FFD27A; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; }
+.lk-perk-box { position: relative; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 10px 12px; border-radius: 10px; border: 1px dashed rgba(255, 180, 50, 0.55); background: rgba(255, 180, 50, 0.07); }
+.lk-perk-text { flex: 1 1 140px; font-size: 13px; line-height: 1.45; color: #FFD27A; }
+.lk-perk { position: relative; z-index: 2; padding: 5px 11px; border-radius: 6px; border: 1px solid rgba(255, 180, 50, 0.7); background: rgba(255, 180, 50, 0.14); color: #FFD27A; font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; }
 .lk-perk b { font-weight: 500; letter-spacing: 0.1em; }
 .lk-perk:hover { background: rgba(255, 180, 50, 0.2); }
 .lk-visit { margin-left: auto; font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); transition: color 0.2s; }

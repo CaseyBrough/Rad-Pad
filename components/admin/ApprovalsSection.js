@@ -114,6 +114,7 @@ export default function ApprovalsSection() {
                         <div className="adm-row-title" style={{ whiteSpace: 'normal' }}>{x.name}</div>
                         <div className="adm-row-meta" style={{ whiteSpace: 'normal' }}>{x.category}</div>
                         {x.description && <div className="adm-approval-bio">{x.description}</div>}
+                        {x.perk_code && <div className="adm-approval-bio">🎟 Discount code: <b>{x.perk_code}</b>{x.perk_note ? ` — ${x.perk_note}` : ''}</div>}
                         {x.url && <div className="adm-approval-links"><a href={x.url} target="_blank" rel="noopener noreferrer">{x.url}</a></div>}
                       </div>
                       {actions(() => approve('links', x.id, `${x.name} is live on Links`), () => decline('links', x.id, x.name))}

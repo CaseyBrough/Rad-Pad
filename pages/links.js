@@ -26,19 +26,24 @@ function logoHost(host) {
   return labels.length > 2 ? labels.slice(-2).join('.') : host
 }
 
-// Descriptions are free text typed by members. Pull a promo code out of them so
-// it can be shown (and copied) as a perk instead of buried in a sentence.
-function readPerk(desc) {
-  const text = String(desc || '')
-  const code = text.match(/use code:?\s*([A-Za-z0-9_-]{3,24})/i)
-  if (!code) return null
+// A member discount: the admin's "Discount code" fields first, otherwise a code
+// found in the description ("Use code: X", "discount code "X"") so older entries
+// keep working.
+function readPerk(link) {
+  const code = String(link.perk_code || '').trim()
+  if (code) return { code, text: String(link.perk_note || '').trim() || null }
+  const text = String(link.description || '')
+  const m = text.match(/\b(?:use|enter|promo|discount|coupon)\s+code:?\s*["“']?([A-Za-z0-9_-]{3,24})["”']?/i)
+  if (!m || !/^[A-Z0-9_-]{3,24}$/.test(m[1])) return null
   const off = text.match(/(\d{1,2}\s?%\s*off)/i)
-  return { code: code[1].toUpperCase(), off: off ? off[1].replace(/\s+/g, ' ') : null }
+  return { code: m[1], text: off ? off[1].replace(/\s+/g, ' ') : null }
 }
 
-function cleanDescription(desc, hasPerk) {
+// Description lines that only exist to announce the code are dropped; the perk
+// box shows them instead.
+function cleanDescription(desc, perk) {
   const lines = String(desc || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-  const kept = hasPerk ? lines.filter(l => !/use code/i.test(l)) : lines
+  const kept = perk ? lines.filter(l => !l.toUpperCase().includes(perk.code.toUpperCase()) && !/use code/i.test(l)) : lines
   return kept.join(' · ')
 }
 
@@ -77,8 +82,8 @@ function LinkCard({ link, isNew }) {
   const [open, setOpen] = useState(false)
   const [truncated, setTruncated] = useState(false)
   const descRef = useRef(null)
-  const perk = readPerk(link.description)
-  const desc = cleanDescription(link.description, !!perk)
+  const perk = readPerk(link)
+  const desc = cleanDescription(link.description, perk)
 
   // Only offer "Read more" when the clamp is actually hiding text.
   useEffect(() => {
@@ -106,14 +111,18 @@ function LinkCard({ link, isNew }) {
         <button type="button" className="lk-more" onClick={() => setOpen(o => !o)}>{open ? 'Show less' : 'Read more'}</button>
       )}
 
+      {perk && (
+        <div className="lk-perk-box">
+          <span className="lk-perk-text">{perk.text || 'Rad Pad member discount'}</span>
+          <button type="button" className="lk-perk" onClick={() => copyCode(perk.code)} title="Copy discount code">
+            <b>{perk.code}</b> <span aria-hidden="true">⧉</span>
+          </button>
+        </div>
+      )}
+
       <div className="lk-foot">
         <span className="lk-cat">{link.category}</span>
         {isMemberBuilt(link.description) && <span className="lk-badge">Member-built</span>}
-        {perk && (
-          <button type="button" className="lk-perk" onClick={() => copyCode(perk.code)} title="Copy promo code">
-            {perk.off ? `${perk.off} · ` : ''}<b>{perk.code}</b> <span aria-hidden="true">⧉</span>
-          </button>
-        )}
         <span className="lk-visit" aria-hidden="true">Visit ↗</span>
       </div>
     </div>
@@ -146,7 +155,7 @@ export default function Links() {
   const [submitted, setSubmitted] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [form, setForm] = useState({ name: '', description: '', url: '', category: 'Software', emoji: '' })
+  const [form, setForm] = useState({ name: '', description: '', url: '', category: 'Software', emoji: '', perk_code: '', perk_note: '' })
   const seenSnapshot = useSeenSnapshot('links')
 
   useEffect(() => {
@@ -194,7 +203,7 @@ export default function Links() {
   })
 
   const browsing = filter === 'All' && !q
-  const perks = browsing ? links.filter(l => readPerk(l.description)) : []
+  const perks = browsing ? links.filter(l => readPerk(l)) : []
   const sections = browsing
     ? categories.map(([cat]) => ({ cat, items: links.filter(l => l.category === cat) })).filter(s => s.items.length)
     : [{ cat: null, items: visible }]
@@ -230,7 +239,7 @@ export default function Links() {
           canSave={!!form.name.trim() && !!form.url.trim()}
           submitLabel="Submit for review"
         >
-          <p className="panel-note">Goes to the admin for a quick review before it shows up here. Got a member discount? Add “Use code: YOURCODE” to the description and it will show up as a perk.</p>
+          <p className="panel-note">Goes to the admin for a quick review before it shows up here. Got a member discount? Add the code below and it shows up as a perk.</p>
           <div className="adm-form-grid">
             <div className="form-group">
               <label className="form-label" htmlFor="ln-name">Name *</label>
@@ -253,6 +262,14 @@ export default function Links() {
             <div className="form-group full">
               <label className="form-label" htmlFor="ln-desc">Description</label>
               <input id="ln-desc" className="form-input" value={form.description} onChange={e => setField('description', e.target.value)} placeholder="Why this is worth checking out..." />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="ln-code">Discount code (optional)</label>
+              <input id="ln-code" className="form-input" value={form.perk_code} onChange={e => setField('perk_code', e.target.value)} placeholder="RADPAD50" />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="ln-note">What it gets you</label>
+              <input id="ln-note" className="form-input" value={form.perk_note} onChange={e => setField('perk_note', e.target.value)} placeholder="50% off Pro" />
             </div>
           </div>
           {error && <div className="panel-error">{error}</div>}
