@@ -6,6 +6,8 @@ import { markExplicitLogout } from '../lib/gate'
 import { NEW_SECTIONS, useNewCounts, markSeen } from '../lib/newSince'
 import Toaster from './Toaster'
 import CommandPalette from './CommandPalette'
+import ReferPanel from './ReferPanel'
+import { openReferPanel } from '../lib/referral'
 
 const NAV = [
   {
@@ -121,6 +123,10 @@ export default function Layout({ children }) {
             )
           })}
         </nav>
+        <button type="button" className="side-refer" onClick={() => { setMobileOpen(false); openReferPanel() }}>
+          <span aria-hidden="true">🤝</span>
+          <span className="side-refer-text"><b>Refer someone</b><small>Copy the invite link</small></span>
+        </button>
         <div className="sidebar-footer">
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 10 }}>
             Referral-Only Community
@@ -138,6 +144,7 @@ export default function Layout({ children }) {
       </main>
       <Toaster />
       <CommandPalette />
+      <ReferPanel />
     </div>
   )
 }

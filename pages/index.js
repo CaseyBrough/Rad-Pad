@@ -8,6 +8,7 @@ import AddToCalendar from '../components/AddToCalendar'
 import { supabase } from '../lib/supabase'
 import { useNewCounts, summarizeNew } from '../lib/newSince'
 import { eventSpan, formatInViewerZone, calendarDaysUntil, isNotice } from '../lib/calendar'
+import ReferralCard from '../components/ReferralCard'
 import { durationMinutes } from '../lib/youtube'
 import { callTypeTag } from '../lib/callTypes'
 
@@ -215,9 +216,10 @@ export default function Home() {
               {members.length > faces.length && <span className="faces-more">+{members.length - faces.length}</span>}
             </Link>
           )}
-          <Link href="/the-pad" className="refer-line">Know someone who&apos;d be a great fit? <b>Refer them →</b></Link>
         </section>
       </div>
+
+      <ReferralCard />
 
       {/* EXPLORE TILES */}
       <section className="home-section">

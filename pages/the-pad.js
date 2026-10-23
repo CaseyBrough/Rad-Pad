@@ -5,7 +5,7 @@ import Thumb from '../components/Thumb'
 import Countdown, { useNow } from '../components/Countdown'
 import AddToCalendar from '../components/AddToCalendar'
 import { supabase } from '../lib/supabase'
-import { toast } from '../components/Toaster'
+import ReferralCard from '../components/ReferralCard'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
 import { eventSpan, formatInViewerZone, isNotice } from '../lib/calendar'
 import { callTypeTag } from '../lib/callTypes'
@@ -139,7 +139,6 @@ const CHANNELS = [
   },
 ]
 
-const REFERRAL_URL = 'https://form.jotform.com/262156045622048'
 const CALENDAR_URL = 'https://calendar.google.com/calendar/embed?src=radpad2026%40gmail.com&ctz=America%2FEdmonton'
 const ICAL_URL = 'https://calendar.google.com/calendar/ical/radpad2026%40gmail.com/public/basic.ics'
 
@@ -186,15 +185,6 @@ function splitMessage(message) {
 function shortDate(iso) {
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-}
-
-function copyText(text, okMessage) {
-  const done = () => toast(okMessage)
-  const fail = () => toast('Could not copy — long-press the link instead.', { type: 'error' })
-  try {
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(text).then(done, fail)
-    else fail()
-  } catch { fail() }
 }
 
 // Announcements are typed with blank lines between every item; show them as
@@ -265,7 +255,7 @@ function StartHere({ guidelinesUrl }) {
     { n: 1, title: 'Say hello', text: 'Drop a quick intro so people know who you are and what you’re building.', cta: 'Open #introductions', href: intro.url, external: true },
     { n: 2, title: 'Read the guidelines', text: 'How we show up for each other, in one short read.', cta: guidelinesUrl ? 'Read them' : 'Open resources', href: guidelinesUrl || '/resources', external: !!guidelinesUrl },
     { n: 3, title: 'Join a call', text: 'Weekly community calls, shown in your own time zone.', cta: 'See the schedule', href: '/calendar' },
-    { n: 4, title: 'Refer someone', text: 'Know a great fit? Send them our form. It’s for them to fill out, not you.', cta: 'Copy the link', action: () => copyText(REFERRAL_URL, 'Referral link copied') },
+    { n: 4, title: 'Meet members', text: 'Find collaborators and referral partners by specialty, or see who’s near you.', cta: 'Open the directory', href: '/directory' },
   ]
   return (
     <section className="sec">
@@ -420,6 +410,8 @@ export default function ThePad() {
         {!loading && current ? <Bulletin item={current} isNew={isNewSince(current.created_at, seenSnapshot)} /> : null}
         <NextCall loaded={!loading} next={next} now={now} />
       </div>
+
+      <ReferralCard />
 
       <StartHere guidelinesUrl={guidelinesUrl} />
 
