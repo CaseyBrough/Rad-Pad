@@ -258,7 +258,14 @@ export default function MemberMap() {
 
   // ── derived lists ──
   const f = search.trim().toLowerCase()
-  const origin = useMemo(() => (mode === 'near' && nearText.trim() ? parseLocation(nearText.trim()) : null), [mode, nearText])
+  // Where "Near me" measures from: a US or Canadian city. Anywhere else gets a
+  // note instead, since the map itself is North America only.
+  const nearPlace = useMemo(() => {
+    if (mode !== 'near' || !nearText.trim()) return null
+    try { return placePin({ location: nearText.trim() }) } catch { return null } // half-typed text must never take the page down
+  }, [mode, nearText])
+  const origin = nearPlace?.kind === 'na' ? nearPlace.parsed : null
+  const nearAbroad = nearPlace?.kind === 'intl'
 
   const listItems = useMemo(() => {
     const inRegion = m => !regionId || m.group?.id === regionId
@@ -515,7 +522,7 @@ export default function MemberMap() {
             )}
             <div className="mp-count" aria-live="polite">
               {mode === 'near'
-                ? (origin ? `Closest to ${cityLabel(origin)}` : nearText.trim() ? 'Couldn’t place that — try “City, ST”.' : 'Type your city to see who’s closest.')
+                ? (origin ? `Closest to ${cityLabel(origin)}` : nearAbroad ? 'Near me covers the US and Canada for now. Try Find a member.' : nearText.trim() ? 'Couldn’t place that — try “City, ST”.' : 'Type your city to see who’s closest.')
                 : `${listItems.length} ${listItems.length === 1 ? 'member' : 'members'}${filtering ? ' match' : ''}`}
             </div>
             <div className="mp-list" ref={listRef}>
