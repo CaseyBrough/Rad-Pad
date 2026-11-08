@@ -6,9 +6,11 @@ import { supabase } from '../lib/supabase'
 import { hasStoredSession, noteGateExit, withTimeout, consumeExplicitLogout } from '../lib/gate'
 
 // /login has its own form, no gate needed.
+// /newmemberintake is the application form for referred people, who by
+// definition aren't members yet, so it has to be open to the public.
 // /admin-rp2026 keeps its existing obscure-URL-only protection - it's Casey's
 // own panel, not member content, and should never depend on member auth.
-const PUBLIC_ROUTES = ['/login']
+const PUBLIC_ROUTES = ['/login', '/newmemberintake']
 const UNGATED_ROUTES = ['/admin-rp2026']
 
 const SESSION_TIMEOUT_MS = 12000
