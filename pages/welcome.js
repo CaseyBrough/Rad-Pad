@@ -15,7 +15,7 @@ import { useRouter } from 'next/router'
 const VIDEO_EMBED_URL = 'https://www.youtube-nocookie.com/embed/8BSIfJjo4RQ'
 
 // Slack invite link Casey provided.
-const SLACK_INVITE_URL = 'https://join.slack.com/t/theradpad/shared_invite/zt-44lnbp95g-oVG_szvp6B05m66xdyWx8A'
+const SLACK_INVITE_URL = 'https://join.slack.com/t/theradpad/shared_invite/zt-4g2061uac-LAMjO5vFh8BzkxeRKgyMsQ'
 
 export default function Welcome() {
   const router = useRouter()
