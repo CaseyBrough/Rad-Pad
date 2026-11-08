@@ -1,16 +1,26 @@
 import { supabase } from '../../lib/supabase'
+import { applicationReceivedEmail, applicationAlertEmail } from '../../lib/emails/applicationEmails'
 
 // Receives the public new-member intake form (/newmemberintake), checks it, and
 // saves it to the new_member_intake table (insert-only for the public; see
 // docs/migrations/2026-11-08-new-member-intake.sql).
 //
-// Optional email alert, sent only if these Vercel environment variables exist
-// (otherwise it is skipped and the application is still saved):
-//   RESEND_API_KEY     sending key for theradpad.org (same one the revoke email uses)
-//   INTAKE_NOTIFY_TO   where the "new application" alert goes (comma-separated ok)
-//   EMAIL_FROM         optional, default: The Rad Pad <hello@theradpad.org>
-//   RESEND_API_URL     optional, for tests only
-//   INTAKE_SHEET_WEBHOOK_URL  Apps Script web app URL (logs each application to the team sheet)
+// After saving, it fans out to the other places an application goes. Each one
+// is skipped if its variables aren't set, and a failure in any of them never
+// loses the application (it is already in the database):
+//   Email (Resend)  two branded emails:
+//                   - to the applicant: "we got your application"
+//                   - to INTAKE_NOTIFY_TO: the full application, reply-to the applicant
+//   Google Sheet    via the Apps Script web app (docs/intake-sheet-script.gs)
+//   Slack           a short card in #the-chosen-chat
+//
+// Environment variables:
+//   RESEND_API_KEY            sending key for theradpad.org (same one the revoke email uses)
+//   INTAKE_NOTIFY_TO          where the team alert goes (comma-separated ok)
+//   EMAIL_FROM                optional, default: The Rad Pad <hello@theradpad.org>
+//   EMAIL_REPLY_TO            optional, reply-to on the applicant confirmation (default hello@theradpad.org)
+//   RESEND_API_URL            optional, for tests only
+//   INTAKE_SHEET_WEBHOOK_URL  Apps Script web app URL
 //   INTAKE_SHEET_SECRET       the shared secret set in that script
 //   INTAKE_SLACK_WEBHOOK_URL  Slack incoming webhook for #the-chosen-chat
 
@@ -48,12 +58,8 @@ function tooMany(ip) {
   return false
 }
 
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-
 // Copies the application into the team's Google Sheet through the Apps Script
-// web app (docs/intake-sheet-script.gs). Skipped if the env vars aren't set.
-// Returns true only when the sheet confirmed the row; a failure never blocks the
-// application, which is already saved in the database.
+// web app. Returns true only when the sheet confirmed the row.
 async function logToSheet(row) {
   const url = process.env.INTAKE_SHEET_WEBHOOK_URL
   const secret = process.env.INTAKE_SHEET_SECRET
@@ -75,40 +81,42 @@ async function logToSheet(row) {
   }
 }
 
-async function notify(row) {
+// Sends one email through Resend. Never throws.
+async function sendEmail(payload) {
   const apiKey = process.env.RESEND_API_KEY
-  const to = (process.env.INTAKE_NOTIFY_TO || '').split(',').map(s => s.trim()).filter(Boolean)
-  if (!apiKey || !to.length) return
-  const name = `${row.first_name} ${row.last_name}`
-  const lines = [
-    ['Email', row.email], ['Business', row.business_name], ['Website', row.website], ['Location', row.location],
-    ['Referred by', row.referred_by], ['Years in business', row.years_in_business], ['Annual revenue', row.annual_revenue],
-    ['Best project', row.best_project_link], ['About the business', row.about_business],
-    ['Going well / challenge', row.going_well_challenge], ['Hoping to get', row.hoping_to_get],
-    ['Strengths', row.strengths], ['Anything else', row.anything_else],
-  ].filter(([, v]) => v)
-  const html = `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#111">
-<h2 style="margin:0 0 12px">New Rad Pad application: ${esc(name)}</h2>
-${lines.map(([k, v]) => `<p style="margin:0 0 10px"><b>${esc(k)}</b><br>${esc(v).replace(/\n/g, '<br>')}</p>`).join('')}
-<p style="color:#666">Review it in the admin panel under New Applications.</p></div>`
-  const text = `New Rad Pad application: ${name}\n\n${lines.map(([k, v]) => `${k}: ${v}`).join('\n\n')}\n\nReview it in the admin panel under New Applications.`
-  const payload = {
-    from: process.env.EMAIL_FROM || 'The Rad Pad <hello@theradpad.org>',
-    to,
-    subject: `New Rad Pad application: ${name}`,
-    html,
-    text,
-    reply_to: row.email,
-  }
+  if (!apiKey) return
   try {
-    await fetch(process.env.RESEND_API_URL || 'https://api.resend.com/emails', {
+    const r = await fetch(process.env.RESEND_API_URL || 'https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(8000),
     })
+    if (!r.ok) console.error('intake email refused', r.status)
   } catch (e) {
-    // The application is already saved; a failed alert must never lose it.
+    console.error('intake email failed', e && e.name)
   }
+}
+
+async function notifyEmail(row) {
+  const from = process.env.EMAIL_FROM || 'The Rad Pad <hello@theradpad.org>'
+  const team = (process.env.INTAKE_NOTIFY_TO || '').split(',').map(s => s.trim()).filter(Boolean)
+
+  const jobs = []
+  if (team.length) {
+    const alert = applicationAlertEmail(row)
+    jobs.push(sendEmail({ from, to: team, subject: alert.subject, html: alert.html, text: alert.text, reply_to: row.email }))
+  }
+  const ack = applicationReceivedEmail(row)
+  jobs.push(sendEmail({
+    from,
+    to: [row.email],
+    subject: ack.subject,
+    html: ack.html,
+    text: ack.text,
+    reply_to: process.env.EMAIL_REPLY_TO || 'hello@theradpad.org',
+  }))
+  await Promise.all(jobs)
 }
 
 // Posts a short card to a Slack channel for each application (name, email,
@@ -173,6 +181,6 @@ export default async function handler(req, res) {
   const { error } = await supabase.from('new_member_intake').insert(row)
   if (error) return res.status(500).json({ error: 'save-failed', message: 'We couldn’t save that. Please try again in a moment.' })
 
-  await Promise.all([notify(row), logToSheet(row), notifySlack(row)])
+  await Promise.all([notifyEmail(row), logToSheet(row), notifySlack(row)])
   return res.status(200).json({ ok: true })
 }
