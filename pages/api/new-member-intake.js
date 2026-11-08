@@ -12,6 +12,7 @@ import { supabase } from '../../lib/supabase'
 //   RESEND_API_URL     optional, for tests only
 //   INTAKE_SHEET_WEBHOOK_URL  Apps Script web app URL (logs each application to the team sheet)
 //   INTAKE_SHEET_SECRET       the shared secret set in that script
+//   INTAKE_SLACK_WEBHOOK_URL  Slack incoming webhook for #the-chosen-chat
 
 const YEARS = ['Under 1', '1-2', '2-5', '5+']
 const REVENUE = ['Under $50K', '$50-100K', '$100-250K', '$250K+', 'Prefer not to say']
@@ -110,6 +111,34 @@ ${lines.map(([k, v]) => `<p style="margin:0 0 10px"><b>${esc(k)}</b><br>${esc(v)
   }
 }
 
+// Posts a short card to a Slack channel for each application (name, email,
+// website, and the form link). Skipped if INTAKE_SLACK_WEBHOOK_URL isn't set.
+const slackEsc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+async function notifySlack(row) {
+  const url = process.env.INTAKE_SLACK_WEBHOOK_URL
+  if (!url) return
+  const name = `${row.first_name} ${row.last_name}`
+  const website = /^https?:\/\//i.test(row.website) ? row.website : `https://${row.website}`
+  const text = [
+    '*New application to The Rad Pad*',
+    `*Name:* ${slackEsc(name)}${row.business_name ? ` (${slackEsc(row.business_name)})` : ''}`,
+    `*Email:* ${slackEsc(row.email)}`,
+    `*Website:* <${slackEsc(website)}>`,
+    'Apply yourself: https://www.theradpad.org/newmemberintake',
+  ].join('\n')
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal: AbortSignal.timeout(8000),
+    })
+  } catch (e) {
+    console.error('intake slack post failed', e && e.name)
+  }
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store')
   if (req.method !== 'POST') {
@@ -144,6 +173,6 @@ export default async function handler(req, res) {
   const { error } = await supabase.from('new_member_intake').insert(row)
   if (error) return res.status(500).json({ error: 'save-failed', message: 'We couldn’t save that. Please try again in a moment.' })
 
-  await Promise.all([notify(row), logToSheet(row)])
+  await Promise.all([notify(row), logToSheet(row), notifySlack(row)])
   return res.status(200).json({ ok: true })
 }
