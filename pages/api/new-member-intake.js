@@ -10,6 +10,8 @@ import { supabase } from '../../lib/supabase'
 //   INTAKE_NOTIFY_TO   where the "new application" alert goes (comma-separated ok)
 //   EMAIL_FROM         optional, default: The Rad Pad <hello@theradpad.org>
 //   RESEND_API_URL     optional, for tests only
+//   INTAKE_SHEET_WEBHOOK_URL  Apps Script web app URL (logs each application to the team sheet)
+//   INTAKE_SHEET_SECRET       the shared secret set in that script
 
 const YEARS = ['Under 1', '1-2', '2-5', '5+']
 const REVENUE = ['Under $50K', '$50-100K', '$100-250K', '$250K+', 'Prefer not to say']
@@ -46,6 +48,31 @@ function tooMany(ip) {
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+
+// Copies the application into the team's Google Sheet through the Apps Script
+// web app (docs/intake-sheet-script.gs). Skipped if the env vars aren't set.
+// Returns true only when the sheet confirmed the row; a failure never blocks the
+// application, which is already saved in the database.
+async function logToSheet(row) {
+  const url = process.env.INTAKE_SHEET_WEBHOOK_URL
+  const secret = process.env.INTAKE_SHEET_SECRET
+  if (!url || !secret) return false
+  try {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret, row }),
+      signal: AbortSignal.timeout(8000),
+    })
+    const data = await r.json().catch(() => null)
+    if (r.ok && data && data.ok) return true
+    console.error('intake sheet log refused', data && data.error)
+    return false
+  } catch (e) {
+    console.error('intake sheet log failed', e && e.name)
+    return false
+  }
+}
 
 async function notify(row) {
   const apiKey = process.env.RESEND_API_KEY
@@ -112,9 +139,11 @@ export default async function handler(req, res) {
   row.years_in_business = body.years_in_business
   row.annual_revenue = body.annual_revenue
 
+  // Made here (not by the database) so we know the id without reading the row back.
+  row.id = crypto.randomUUID()
   const { error } = await supabase.from('new_member_intake').insert(row)
   if (error) return res.status(500).json({ error: 'save-failed', message: 'We couldn’t save that. Please try again in a moment.' })
 
-  await notify(row)
+  await Promise.all([notify(row), logToSheet(row)])
   return res.status(200).json({ ok: true })
 }
