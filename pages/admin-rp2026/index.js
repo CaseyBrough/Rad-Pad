@@ -5,6 +5,7 @@ import AdminShell, { NAV } from '../../components/admin/AdminShell'
 import Overview from '../../components/admin/Overview'
 import ApprovalsSection from '../../components/admin/ApprovalsSection'
 import AnnouncementsSection from '../../components/admin/AnnouncementsSection'
+import IntakeSection from '../../components/admin/IntakeSection'
 import ContentSection from '../../components/admin/ContentSection'
 import { MembersSection, PinsSection, AccessSection } from '../../components/admin/PeopleSections'
 
@@ -41,6 +42,7 @@ function AdminApp() {
   if (view === 'overview') body = <Overview go={go} />
   else if (view === 'approvals') body = <ApprovalsSection />
   else if (view === 'announcements') body = <AnnouncementsSection />
+  else if (view === 'applications') body = <IntakeSection />
   else if (view === 'members') body = <MembersSection />
   else if (view === 'pins') body = <PinsSection />
   else if (view === 'access') body = <AccessSection />
