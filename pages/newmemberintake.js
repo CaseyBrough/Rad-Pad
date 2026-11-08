@@ -66,7 +66,7 @@ export default function NewMemberIntake() {
   )
 
   const choices = (key, label, options) => (
-    <fieldset className="f-group">
+    <fieldset className="f-group choice-group">
       <legend className="form-label">{label} *</legend>
       <div className="chips">
         {options.map((o, i) => (
@@ -93,6 +93,7 @@ export default function NewMemberIntake() {
       </div>
 
       <div className="card">
+        <img className="cover" src="/intake-cover.jpg" alt="" width={1600} height={895} />
         {status === 'done' ? (
           <div className="done">
             <div className="check">✓</div>
@@ -138,7 +139,13 @@ export default function NewMemberIntake() {
         .wrap .brand { text-align: center; margin-bottom: 28px; }
         .wrap .logo { font-family: var(--font-display); font-size: 48px; color: var(--pink); text-shadow: 0 0 44px rgba(255,45,120,0.8); margin-bottom: 6px; }
         .wrap .tag { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
-        .wrap .card { max-width: 640px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 34px 30px; }
+        .wrap { position: relative; isolation: isolate; overflow: hidden; }
+        .wrap::before { content: ""; position: absolute; left: 50%; top: 42%; width: 980px; height: 980px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255,45,120,0.42) 0%, rgba(255,45,120,0.16) 38%, rgba(255,45,120,0) 68%); filter: blur(10px); pointer-events: none; z-index: -1; }
+        .wrap .brand, .wrap .card { position: relative; }
+        .wrap .card { max-width: 640px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 0 30px 34px; overflow: hidden; box-shadow: 0 0 60px rgba(255,45,120,0.22); }
+        .wrap .cover { display: block; width: calc(100% + 60px); max-width: none; margin: 0 -30px 28px; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+        .wrap .f-group.choice-group { margin: 0 0 40px; }
+        .wrap .choice-group .chips { margin-top: 4px; }
         .wrap h1 { font-family: var(--font-head); font-weight: 400; font-size: 34px; letter-spacing: 0.04em; margin: 0 0 8px; }
         .wrap .lede { color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 26px; }
         .wrap .f-group { display: flex; flex-direction: column; gap: 6px; margin: 0 0 20px; border: 0; padding: 0; min-width: 0; }
