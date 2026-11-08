@@ -143,7 +143,7 @@ export default function NewMemberIntake() {
         .wrap::before { content: ""; position: absolute; left: 50%; top: 42%; width: 980px; height: 980px; transform: translate(-50%, -50%); background: radial-gradient(circle, rgba(255,45,120,0.42) 0%, rgba(255,45,120,0.16) 38%, rgba(255,45,120,0) 68%); filter: blur(10px); pointer-events: none; z-index: -1; }
         .wrap .brand, .wrap .card { position: relative; }
         .wrap .card { max-width: 640px; margin: 0 auto; background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 0 30px 34px; overflow: hidden; box-shadow: 0 0 60px rgba(255,45,120,0.22); }
-        .wrap .cover { display: block; width: calc(100% + 60px); max-width: none; margin: 0 -30px 28px; height: auto; aspect-ratio: 16 / 9; object-fit: cover; }
+        .wrap .cover { display: block; width: calc(100% + 60px); max-width: none; margin: 0 -30px 28px; height: auto; aspect-ratio: 2.4 / 1; object-fit: cover; object-position: 50% 40%; }
         .wrap .f-group.choice-group { margin: 0 0 40px; }
         .wrap .choice-group .chips { margin-top: 4px; }
         .wrap h1 { font-family: var(--font-head); font-weight: 400; font-size: 34px; letter-spacing: 0.04em; margin: 0 0 8px; }
