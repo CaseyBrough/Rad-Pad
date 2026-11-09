@@ -5,6 +5,7 @@ import Thumb from '../components/Thumb'
 import Countdown, { useNow } from '../components/Countdown'
 import AddToCalendar from '../components/AddToCalendar'
 import { supabase } from '../lib/supabase'
+import SubscribeCalendar from '../components/SubscribeCalendar'
 import ReferralCard from '../components/ReferralCard'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
 import { eventSpan, formatInViewerZone, isNotice } from '../lib/calendar'
@@ -138,9 +139,6 @@ const CHANNELS = [
     ],
   },
 ]
-
-const CALENDAR_URL = 'https://calendar.google.com/calendar/embed?src=radpad2026%40gmail.com&ctz=America%2FEdmonton'
-const ICAL_URL = 'https://calendar.google.com/calendar/ical/radpad2026%40gmail.com/public/basic.ics'
 
 const REGIONAL_CHANNELS = [
   { name: 'region-canada', emoji: '🍁' },
@@ -474,11 +472,8 @@ export default function ThePad() {
         </div>
         <div className="pad-tile">
           <div className="sec-head"><h2>Community calendar</h2></div>
-          <p className="pad-tile-text">Add the iCal feed to sync every community call to your own calendar, or browse them in Google Calendar.</p>
-          <div className="pad-actions">
-            <a className="btn cyan" href={CALENDAR_URL} target="_blank" rel="noopener noreferrer">📅 Google Calendar ↗</a>
-            <a className="btn" href={ICAL_URL} target="_blank" rel="noopener noreferrer">📆 iCal feed ↗</a>
-          </div>
+          <p className="pad-tile-text">Subscribe once and every community call, including new ones, shows up in your own calendar by itself.</p>
+          <SubscribeCalendar compact />
         </div>
       </div>
 

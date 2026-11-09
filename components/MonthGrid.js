@@ -20,7 +20,7 @@ function dotColor(type) {
 }
 const TAG = { amber: 'tag-amber', purple: 'tag-purple', pink: 'tag-pink', cyan: 'tag-cyan' }
 
-export default function MonthGrid({ events, now, recordingByDate, bookUrl }) {
+export default function MonthGrid({ events, now, recordingByDate, onBook, heldDates }) {
   const today = useMemo(() => {
     const d = new Date(now)
     return { y: d.getFullYear(), m: d.getMonth(), d: d.getDate() }
@@ -65,7 +65,7 @@ export default function MonthGrid({ events, now, recordingByDate, bookUrl }) {
     const calls = list.filter(e => !isNotice(e))
     if (calls.length) return { kind: 'booked', calls, list }
     if (list.length) return { kind: 'none', list }
-    if (CALL_WEEKDAYS.includes(weekday) && k >= todayKey) return { kind: 'open', list }
+    if (CALL_WEEKDAYS.includes(weekday) && k >= todayKey) return { kind: 'open', list, held: !!heldDates?.has(k), bookable: k > todayKey && !heldDates?.has(k) }
     return { kind: 'empty', list }
   }
 
@@ -93,7 +93,7 @@ export default function MonthGrid({ events, now, recordingByDate, bookUrl }) {
             const k = key(cursor.y, cursor.m, d)
             const st = statusOf(k, (first.getDay() + d - 1) % 7)
             const isToday = k === todayKey
-            const label = `${new Date(cursor.y, cursor.m, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${st.kind === 'booked' ? `: ${st.calls.map(c => c.title).join(', ')}` : st.kind === 'open' ? ': call day, nothing booked yet' : st.kind === 'none' ? ': no call' : ''}`
+            const label = `${new Date(cursor.y, cursor.m, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${st.kind === 'booked' ? `: ${st.calls.map(c => c.title).join(', ')}` : st.kind === 'open' ? (st.held ? ': call day, a member has asked to host' : ': call day, nothing booked yet') : st.kind === 'none' ? ': no call' : ''}`
             return (
               <button
                 key={k}
@@ -155,11 +155,18 @@ export default function MonthGrid({ events, now, recordingByDate, bookUrl }) {
             </div>
           )
         }) : sel.kind === 'open' ? (
-          <div className="mg-empty">
-            <b>Call day — nothing booked yet.</b>
-            <p>Calls are usually posted one to two weeks out. Want to lead this one?</p>
-            <a className="btn-join" href={bookUrl} target="_blank" rel="noopener noreferrer">Book this slot →</a>
-          </div>
+          sel.held ? (
+            <div className="mg-empty">
+              <b>Call day. A member has asked to host.</b>
+              <p>It will show up here once it’s confirmed.</p>
+            </div>
+          ) : (
+            <div className="mg-empty">
+              <b>Call day. Nothing booked yet.</b>
+              <p>Calls are usually posted one to two weeks out. Want to lead this one?</p>
+              {sel.bookable && <button type="button" className="btn-join" onClick={() => onBook(selected)}>Host this call →</button>}
+            </div>
+          )
         ) : (
           <div className="mg-empty"><p>No call on this day.</p></div>
         )}

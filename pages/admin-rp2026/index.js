@@ -6,6 +6,7 @@ import Overview from '../../components/admin/Overview'
 import ApprovalsSection from '../../components/admin/ApprovalsSection'
 import AnnouncementsSection from '../../components/admin/AnnouncementsSection'
 import IntakeSection from '../../components/admin/IntakeSection'
+import CallBookingsSection from '../../components/admin/CallBookingsSection'
 import ContentSection from '../../components/admin/ContentSection'
 import { MembersSection, PinsSection, AccessSection } from '../../components/admin/PeopleSections'
 
@@ -43,6 +44,7 @@ function AdminApp() {
   else if (view === 'approvals') body = <ApprovalsSection />
   else if (view === 'announcements') body = <AnnouncementsSection />
   else if (view === 'applications') body = <IntakeSection />
+  else if (view === 'bookings') body = <CallBookingsSection />
   else if (view === 'members') body = <MembersSection />
   else if (view === 'pins') body = <PinsSection />
   else if (view === 'access') body = <AccessSection />

@@ -3,13 +3,13 @@ import Link from 'next/link'
 import Layout from '../components/Layout'
 import AddToCalendar from '../components/AddToCalendar'
 import MonthGrid from '../components/MonthGrid'
+import BookCallPanel from '../components/BookCallPanel'
+import SubscribeCalendar from '../components/SubscribeCalendar'
 import { useNow } from '../components/Countdown'
 import { supabase } from '../lib/supabase'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
-import { eventSpan, formatInViewerZone, calendarDaysUntil, hasDate, isNotice } from '../lib/calendar'
+import { eventSpan, formatInViewerZone, calendarDaysUntil, hasDate, isNotice, CALL_WEEKDAYS } from '../lib/calendar'
 import { callTypeTag } from '../lib/callTypes'
-
-const CALENDLY_URL = 'https://calendly.com/radpad2026/2hrs?month=2026-04'
 
 function getTagColor(type) {
   if (type === 'Live') return 'tag-pink'
@@ -54,17 +54,24 @@ export default function Calendar() {
   const [recordings, setRecordings] = useState([])
   const [loading, setLoading] = useState(true)
   const [showPast, setShowPast] = useState(false)
+  const [held, setHeld] = useState([])       // dates with a hosting request waiting on approval
+  const [settings, setSettings] = useState({})
+  const [booking, setBooking] = useState(null) // date key the booking panel opens on, or null
   const seenSnapshot = useSeenSnapshot('events')
   const now = useNow(30000)
 
   useEffect(() => {
     async function load() {
-      const [ev, rec] = await Promise.all([
+      const [ev, rec, hd, st] = await Promise.all([
         supabase.from('events').select('*').order('event_date', { ascending: true }),
         supabase.from('recordings').select('id,date,title').order('date', { ascending: false }),
+        supabase.rpc('call_slots_held'),
+        supabase.from('site_settings').select('key,value').in('key', ['default_call_time', 'default_call_duration', 'feed_token']),
       ])
       setEvents(ev.data || [])
       setRecordings(rec.data || [])
+      setHeld((hd.data || []).map(x => x.event_date))
+      setSettings(Object.fromEntries((st.data || []).map(x => [x.key, x.value])))
       setLoading(false)
     }
     load()
@@ -103,6 +110,27 @@ export default function Calendar() {
 
   const nextId = upcoming.find(x => !isNotice(x.ev))?.ev.id
 
+  const heldSet = useMemo(() => new Set(held), [held])
+
+  // Tuesdays (the standing call day) in the next ~12 weeks that nobody has booked or asked for.
+  const openDates = useMemo(() => {
+    if (!now) return []
+    const taken = new Set(events.filter(hasDate).map(ev => ev.event_date)) // calls and "no call" notices both block a date
+    const out = []
+    const d = new Date(now)
+    d.setHours(0, 0, 0, 0)
+    for (let i = 1; i <= 84 && out.length < 12; i++) {
+      const c = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i)
+      if (!CALL_WEEKDAYS.includes(c.getDay())) continue
+      const key = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, '0')}-${String(c.getDate()).padStart(2, '0')}`
+      if (taken.has(key) || heldSet.has(key)) continue
+      out.push({ key, label: c.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) })
+    }
+    return out
+  }, [now, events, heldSet])
+
+  const callTime = [settings.default_call_time, settings.default_call_duration].filter(Boolean).join(' · ')
+
   return (
     <Layout>
       <div className="section-label">Schedule</div>
@@ -115,12 +143,16 @@ export default function Calendar() {
           <div className="cta-title">Want to host a call?</div>
           <div className="cta-sub">Grab a slot and bring a topic — the community loves member-led sessions.</div>
         </div>
-        <a className="cta-btn" href={CALENDLY_URL} target="_blank" rel="noopener noreferrer">Book a Slot →</a>
+        <button type="button" className="cta-btn" disabled={loading || openDates.length === 0} onClick={() => setBooking(openDates[0].key)}>
+          {loading ? 'Book a Slot →' : openDates.length ? 'Book a Slot →' : 'No open slots'}
+        </button>
       </div>
+
+      <SubscribeCalendar token={settings.feed_token} />
 
       {loading || !now ? <Skeleton /> : (
         <>
-          <MonthGrid events={events.filter(hasDate)} now={now} recordingByDate={recordingByDate} bookUrl={CALENDLY_URL} />
+          <MonthGrid events={events.filter(hasDate)} now={now} recordingByDate={recordingByDate} onBook={setBooking} heldDates={heldSet} />
 
           {upcoming.length === 0 ? (
             <div className="empty-card">
@@ -232,6 +264,15 @@ export default function Calendar() {
             </section>
           )}
         </>
+      )}
+      {booking && (
+        <BookCallPanel
+          dates={openDates.some(d => d.key === booking) ? openDates : [...openDates, { key: booking, label: new Date(booking + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) }]}
+          initialDate={booking}
+          callTime={callTime}
+          onClose={() => setBooking(null)}
+          onBooked={date => { setHeld(h => [...h, date]); setBooking(null) }}
+        />
       )}
     </Layout>
   )
