@@ -166,3 +166,12 @@ grant execute on function public.call_request_create(text, text, text, text, tex
 grant execute on function public.call_requests_list(text) to anon, authenticated;
 grant execute on function public.call_request_decide(text, uuid, text) to anon, authenticated;
 grant execute on function public.call_request_delete(text, uuid) to anon, authenticated;
+
+-- Admin sidebar badge: how many requests are waiting (a number only, no details).
+create or replace function public.call_requests_pending_count()
+returns integer
+language sql
+security definer
+set search_path = public
+as $$ select count(*)::int from public.call_requests where status = 'pending'; $$;
+grant execute on function public.call_requests_pending_count() to anon, authenticated;

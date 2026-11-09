@@ -25,7 +25,7 @@ export function AdminProvider({ children }) {
   // Overview are accurate from the first second - not only after visiting a tab.
   const refreshCounts = useCallback(async () => {
     try {
-      const [recordings, resources, events, links, linksPending, members, membersPending, pins, pinsPending, access, announcements] = await Promise.all([
+      const [recordings, resources, events, links, linksPending, members, membersPending, pins, pinsPending, access, announcements, bookingsPending] = await Promise.all([
         count('recordings'),
         count('resources'),
         count('events'),
@@ -37,10 +37,12 @@ export function AdminProvider({ children }) {
         count('map_pins', q => q.eq('approved', false)),
         count('authorized_emails'),
         count('announcements', q => q.eq('archived', false)),
+        // Hosting requests waiting on a yes/no (a database function: the table itself is private).
+        supabase.rpc('call_requests_pending_count').then(r => r.data ?? 0, () => 0),
       ])
       setCounts({
         recordings, resources, events, links, linksPending, members, membersPending,
-        pins, pinsPending, access, announcements,
+        pins, pinsPending, access, announcements, bookingsPending,
         pending: linksPending + membersPending + pinsPending,
       })
     } catch (e) {
