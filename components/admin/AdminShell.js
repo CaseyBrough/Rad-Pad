@@ -20,6 +20,7 @@ export const NAV = [
     label: 'People',
     items: [
       { id: 'applications', label: 'New Applications', icon: 'approvals' },
+      { id: 'bookings', label: 'Call Bookings', icon: 'event' },
       { id: 'members', label: 'Members', icon: 'member' },
       { id: 'pins', label: 'Map Pins', icon: 'pin' },
       { id: 'access', label: 'Login Access', icon: 'key', quiet: 'access' },
