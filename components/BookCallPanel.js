@@ -5,7 +5,7 @@ import { CALL_TYPES } from '../lib/callTypes'
 import { toast } from './Toaster'
 
 // "Host this call" slide-over on the Calendar page. The member picks an open
-// Tuesday, says what the call is about, and sends it. It is saved as a request
+// Tuesday or Thursday, says what the call is about, and sends it. It is saved as a request
 // (pages/api/book-call.js) that Casey confirms in the admin; confirming puts it
 // on the Calendar with the standing Zoom link.
 //
@@ -57,7 +57,7 @@ export default function BookCallPanel({ dates, initialDate, callTime, onClose, o
 
   return (
     <SidePanel title="Host a call" onClose={onClose} onSubmit={submit} saving={saving} canSave={canSave} submitLabel="Send request">
-      <p className="panel-note">Lead a session on the Tuesday call. Pick a date and tell us what it’s about. We’ll confirm by email, then it goes on the Calendar for everyone.</p>
+      <p className="panel-note">Lead a session on a Tuesday or Thursday call. Pick a date and tell us what it’s about. We’ll confirm by email, then it goes on the Calendar for everyone.</p>
       {error && <div className="book-error" role="alert">{error}</div>}
       <Field spec={{ key: 'date', label: 'Date', type: 'select', options: dates.map(d => ({ value: d.key, label: d.label })), required: true }} form={form} onChange={set} />
       {callTime && <p className="book-time">{callTime}. Shown in your own time on the Calendar once it’s confirmed.</p>}

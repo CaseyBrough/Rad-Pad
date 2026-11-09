@@ -44,7 +44,7 @@ export default function Overview({ go }) {
         {counts && bookings > 0 && (
           <div className="adm-card alert">
             <h2>{bookings} call booking{bookings === 1 ? '' : 's'} waiting</h2>
-            <p>{bookings === 1 ? 'A member has' : 'Members have'} asked to host a Tuesday call.</p>
+            <p>{bookings === 1 ? 'A member has' : 'Members have'} asked to host a call.</p>
             <div className="adm-queue">
               <button className="adm-btn primary" onClick={() => go('bookings')}>Review now</button>
             </div>

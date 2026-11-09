@@ -8,7 +8,7 @@ import SubscribeCalendar from '../components/SubscribeCalendar'
 import { useNow } from '../components/Countdown'
 import { supabase } from '../lib/supabase'
 import { useSeenSnapshot, isNewSince } from '../lib/newSince'
-import { eventSpan, formatInViewerZone, calendarDaysUntil, hasDate, isNotice, CALL_WEEKDAYS } from '../lib/calendar'
+import { eventSpan, formatInViewerZone, calendarDaysUntil, hasDate, isNotice, BOOKABLE_WEEKDAYS } from '../lib/calendar'
 import { callTypeTag } from '../lib/callTypes'
 
 function getTagColor(type) {
@@ -112,16 +112,17 @@ export default function Calendar() {
 
   const heldSet = useMemo(() => new Set(held), [held])
 
-  // Tuesdays (the standing call day) in the next ~12 weeks that nobody has booked or asked for.
+  // Tuesdays (the standing call day) and Thursdays (extra member slot) in the next ~12 weeks
+  // that nobody has booked or asked for.
   const openDates = useMemo(() => {
     if (!now) return []
     const taken = new Set(events.filter(hasDate).map(ev => ev.event_date)) // calls and "no call" notices both block a date
     const out = []
     const d = new Date(now)
     d.setHours(0, 0, 0, 0)
-    for (let i = 1; i <= 84 && out.length < 12; i++) {
+    for (let i = 1; i <= 84 && out.length < 24; i++) {
       const c = new Date(d.getFullYear(), d.getMonth(), d.getDate() + i)
-      if (!CALL_WEEKDAYS.includes(c.getDay())) continue
+      if (!BOOKABLE_WEEKDAYS.includes(c.getDay())) continue
       const key = `${c.getFullYear()}-${String(c.getMonth() + 1).padStart(2, '0')}-${String(c.getDate()).padStart(2, '0')}`
       if (taken.has(key) || heldSet.has(key)) continue
       out.push({ key, label: c.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) })
