@@ -59,14 +59,16 @@ export default function BookCallPanel({ dates, initialDate, callTime, onClose, o
     <SidePanel title="Host a call" onClose={onClose} onSubmit={submit} saving={saving} canSave={canSave} submitLabel="Send request">
       <p className="panel-note">Lead a session on a Tuesday or Thursday call. Pick a date and tell us what it’s about. We’ll confirm by email, then it goes on the Calendar for everyone.</p>
       {error && <div className="book-error" role="alert">{error}</div>}
-      <Field spec={{ key: 'date', label: 'Date', type: 'select', options: dates.map(d => ({ value: d.key, label: d.label })), required: true }} form={form} onChange={set} />
-      {callTime && <p className="book-time">{callTime}. Shown in your own time on the Calendar once it’s confirmed.</p>}
-      <Field spec={{ key: 'name', label: 'Your name', placeholder: 'How you’d like to be introduced', required: true }} form={form} onChange={set} />
-      <Field spec={{ key: 'title', label: 'What’s the call about?', placeholder: 'e.g. How I price video projects', required: true }} form={form} onChange={set} />
-      <Field spec={{ key: 'type', label: 'Type of call', type: 'select', options: CALL_TYPES }} form={form} onChange={set} />
-      <Field spec={{ key: 'description', label: 'Description', type: 'textarea', optional: true, placeholder: 'What will you cover? Members see this on the Calendar.' }} form={form} onChange={set} />
-      <Field spec={{ key: 'note', label: 'Anything we should know?', type: 'textarea', optional: true, placeholder: 'A different time, a guest, special setup… only the team sees this.' }} form={form} onChange={set} />
-      {email && <p className="book-time">Booking as {email}. Confirmation goes to this address.</p>}
+      <div className="book-form">
+        <Field spec={{ key: 'date', label: 'Date', type: 'select', options: dates.map(d => ({ value: d.key, label: d.label })), required: true }} form={form} onChange={set} />
+        {callTime && <p className="book-time">{callTime}. Shown in your own time on the Calendar once it’s confirmed.</p>}
+        <Field spec={{ key: 'name', label: 'Your name', placeholder: 'How you’d like to be introduced', required: true }} form={form} onChange={set} />
+        <Field spec={{ key: 'title', label: 'What’s the call about?', placeholder: 'e.g. How I price video projects', required: true }} form={form} onChange={set} />
+        <Field spec={{ key: 'type', label: 'Type of call', type: 'select', options: CALL_TYPES }} form={form} onChange={set} />
+        <Field spec={{ key: 'description', label: 'Description', type: 'textarea', optional: true, placeholder: 'What will you cover? Members see this on the Calendar.' }} form={form} onChange={set} />
+        <Field spec={{ key: 'note', label: 'Anything we should know?', type: 'textarea', optional: true, placeholder: 'A different time, a guest, special setup… only the team sees this.' }} form={form} onChange={set} />
+        {email && <p className="book-time">Booking as {email}. Confirmation goes to this address.</p>}
+      </div>
     </SidePanel>
   )
 }

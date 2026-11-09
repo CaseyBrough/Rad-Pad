@@ -1605,3 +1605,16 @@ button.btn-join { border: 0; font: inherit; font-family: var(--font-mono); font-
 .sub-sub { margin-top: 2px; font-size: 13px; line-height: 1.5; color: var(--muted); max-width: 46ch; }
 .sub-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .sub-actions .cal-add-btn { text-decoration: none; }
+
+/* Host-a-call form: even rhythm between fields, matching control heights. */
+.book-form { display: flex; flex-direction: column; gap: 22px; }
+.book-form .form-group { gap: 8px; }
+.book-form .book-time { margin: -12px 0 0; }
+.book-form .book-time:last-child { margin: -4px 0 0; }
+.book-form .form-input, .book-form .form-select { min-height: 46px; font-size: 16px; }
+.book-form .form-textarea { font-size: 16px; min-height: 96px; }
+.book-form .form-select {
+  -webkit-appearance: none; appearance: none; padding-right: 40px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%23D8D4E8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+}
