@@ -23,7 +23,7 @@ const SETTINGS = [
 ]
 
 export default function CallBookingsSection() {
-  const { toast } = useAdmin()
+  const { toast, refreshCounts } = useAdmin()
   const [phase, setPhase] = useState('loading') // loading | unset | locked | open
   const [key, setKey] = useState('')
   const [busy, setBusy] = useState(false)
@@ -105,6 +105,7 @@ export default function CallBookingsSection() {
         toast(j.emailed ? 'Declined. The date is open again.' : `Declined, but the email didn’t send. Let ${row.host_name} know (${row.host_email}).`, { type: j.emailed ? 'success' : 'error', duration: j.emailed ? 4500 : 9000 })
       }
       await load(stored())
+      refreshCounts()
     } finally {
       setWorking(null)
     }

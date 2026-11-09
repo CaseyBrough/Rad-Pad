@@ -14,6 +14,7 @@ const STATS = [
 export default function Overview({ go }) {
   const { counts } = useAdmin()
   const pending = counts?.pending ?? 0
+  const bookings = counts?.bookingsPending ?? 0
 
   const parts = counts ? [
     counts.membersPending > 0 && `${counts.membersPending} Directory profile${counts.membersPending === 1 ? '' : 's'}`,
@@ -28,7 +29,10 @@ export default function Overview({ go }) {
       <div className="adm-section">
         {!counts ? (
           <div className="adm-card"><p>Checking for new submissions…</p></div>
-        ) : pending > 0 ? (
+        ) : pending === 0 && bookings === 0 ? (
+          <div className="adm-card ok"><h2>All caught up</h2><p>Nothing is waiting for approval.</p></div>
+        ) : null}
+        {counts && pending > 0 && (
           <div className="adm-card alert">
             <h2>{pending} waiting for approval</h2>
             <p>{parts.join(', ')}.</p>
@@ -36,8 +40,15 @@ export default function Overview({ go }) {
               <button className="adm-btn primary" onClick={() => go('approvals')}>Review now</button>
             </div>
           </div>
-        ) : (
-          <div className="adm-card ok"><h2>All caught up</h2><p>Nothing is waiting for approval.</p></div>
+        )}
+        {counts && bookings > 0 && (
+          <div className="adm-card alert">
+            <h2>{bookings} call booking{bookings === 1 ? '' : 's'} waiting</h2>
+            <p>{bookings === 1 ? 'A member has' : 'Members have'} asked to host a Tuesday call.</p>
+            <div className="adm-queue">
+              <button className="adm-btn primary" onClick={() => go('bookings')}>Review now</button>
+            </div>
+          </div>
         )}
       </div>
 

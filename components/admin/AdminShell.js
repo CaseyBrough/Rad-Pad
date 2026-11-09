@@ -20,7 +20,7 @@ export const NAV = [
     label: 'People',
     items: [
       { id: 'applications', label: 'New Applications', icon: 'approvals' },
-      { id: 'bookings', label: 'Call Bookings', icon: 'event' },
+      { id: 'bookings', label: 'Call Bookings', icon: 'event', badge: 'bookingsPending' },
       { id: 'members', label: 'Members', icon: 'member' },
       { id: 'pins', label: 'Map Pins', icon: 'pin' },
       { id: 'access', label: 'Login Access', icon: 'key', quiet: 'access' },
@@ -40,7 +40,7 @@ export default function AdminShell({ view, go, children }) {
           <Icon name={open ? 'close' : 'menu'} size={18} />
         </button>
         <span className="adm-top-title">The Rad Pad</span>
-        {counts?.pending > 0 && <span className="adm-badge" style={{ marginLeft: 'auto' }}>{counts.pending}</span>}
+        {(counts?.pending || 0) + (counts?.bookingsPending || 0) > 0 && <span className="adm-badge" style={{ marginLeft: 'auto' }}>{(counts.pending || 0) + (counts.bookingsPending || 0)}</span>}
       </div>
 
       {open && <div className="adm-backdrop" onClick={() => setOpen(false)} />}
