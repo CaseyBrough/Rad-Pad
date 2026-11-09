@@ -3,7 +3,7 @@ import { callRequestedEmail, callRequestAlertEmail } from '../../lib/emails/call
 
 // A signed-in member asks to host a call (Calendar page -> "Host this call").
 // Checks the member's sign-in token, saves the request through the database
-// function call_request_create (which also checks the date is a free Tuesday),
+// function call_request_create (which also checks the date is a free Tuesday or Thursday),
 // then emails the host and the team. A failed email never loses the request.
 //
 // Environment variables (all optional except the Supabase ones the site already has):
@@ -52,7 +52,7 @@ async function sendEmail(payload) {
 const MESSAGES = {
   'slot-taken': 'Someone just asked for that date. Please pick another one.',
   'date-passed': 'That date has already passed. Please pick a future date.',
-  'not-a-call-day': 'Calls are held on Tuesdays. Please pick a Tuesday.',
+  'not-a-call-day': 'Calls can be booked on Tuesdays and Thursdays. Please pick one of those.',
   'bad-date': 'Please pick a date.',
   'too-many-pending': 'You already have two requests waiting. We’ll get to those first.',
 }

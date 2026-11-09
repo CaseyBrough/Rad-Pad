@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import AddToCalendar from './AddToCalendar'
-import { CALL_WEEKDAYS, eventSpan, formatInViewerZone, isNotice } from '../lib/calendar'
+import { CALL_WEEKDAYS, BOOKABLE_WEEKDAYS, eventSpan, formatInViewerZone, isNotice } from '../lib/calendar'
 import { callTypeDot } from '../lib/callTypes'
 
 // Month view of the call schedule. A filled dot is a booked call; an open dot is
@@ -65,7 +65,7 @@ export default function MonthGrid({ events, now, recordingByDate, onBook, heldDa
     const calls = list.filter(e => !isNotice(e))
     if (calls.length) return { kind: 'booked', calls, list }
     if (list.length) return { kind: 'none', list }
-    if (CALL_WEEKDAYS.includes(weekday) && k >= todayKey) return { kind: 'open', list, held: !!heldDates?.has(k), bookable: k > todayKey && !heldDates?.has(k) }
+    if ((CALL_WEEKDAYS.includes(weekday) || BOOKABLE_WEEKDAYS.includes(weekday)) && k >= todayKey) return { kind: 'open', list, standing: CALL_WEEKDAYS.includes(weekday), held: !!heldDates?.has(k), bookable: k > todayKey && !heldDates?.has(k) }
     return { kind: 'empty', list }
   }
 
@@ -93,7 +93,7 @@ export default function MonthGrid({ events, now, recordingByDate, onBook, heldDa
             const k = key(cursor.y, cursor.m, d)
             const st = statusOf(k, (first.getDay() + d - 1) % 7)
             const isToday = k === todayKey
-            const label = `${new Date(cursor.y, cursor.m, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${st.kind === 'booked' ? `: ${st.calls.map(c => c.title).join(', ')}` : st.kind === 'open' ? (st.held ? ': call day, a member has asked to host' : ': call day, nothing booked yet') : st.kind === 'none' ? ': no call' : ''}`
+            const label = `${new Date(cursor.y, cursor.m, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}${st.kind === 'booked' ? `: ${st.calls.map(c => c.title).join(', ')}` : st.kind === 'open' ? (st.held ? ': a member has asked to host' : st.standing ? ': call day, nothing booked yet' : ': open for a member-hosted call') : st.kind === 'none' ? ': no call' : ''}`
             return (
               <button
                 key={k}
@@ -115,7 +115,7 @@ export default function MonthGrid({ events, now, recordingByDate, onBook, heldDa
         </div>
         <div className="mg-legend">
           <span><i className="mg-dot cyan" /> Call booked</span>
-          <span><i className="mg-dot open" /> Call day, nothing booked yet</span>
+          <span><i className="mg-dot open" /> Open slot, nothing booked yet</span>
           <span><i className="mg-dash" /> No call</span>
         </div>
       </div>
@@ -157,13 +157,19 @@ export default function MonthGrid({ events, now, recordingByDate, onBook, heldDa
         }) : sel.kind === 'open' ? (
           sel.held ? (
             <div className="mg-empty">
-              <b>Call day. A member has asked to host.</b>
+              <b>{sel.standing ? 'Call day. ' : ''}A member has asked to host.</b>
               <p>It will show up here once it’s confirmed.</p>
             </div>
-          ) : (
+          ) : sel.standing ? (
             <div className="mg-empty">
               <b>Call day. Nothing booked yet.</b>
               <p>Calls are usually posted one to two weeks out. Want to lead this one?</p>
+              {sel.bookable && <button type="button" className="btn-join" onClick={() => onBook(selected)}>Host this call →</button>}
+            </div>
+          ) : (
+            <div className="mg-empty">
+              <b>Open Thursday slot.</b>
+              <p>Thursdays are open for member-hosted calls. Got something to share? Grab it.</p>
               {sel.bookable && <button type="button" className="btn-join" onClick={() => onBook(selected)}>Host this call →</button>}
             </div>
           )

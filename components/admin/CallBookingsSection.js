@@ -128,7 +128,7 @@ export default function CallBookingsSection() {
     loadSettings()
   }
 
-  const header = <PageHeader title="Call Bookings" sub="Members who’ve asked to host a Tuesday call. Approving puts it on the Calendar with the standing Zoom link and emails them." />
+  const header = <PageHeader title="Call Bookings" sub="Members who’ve asked to host a Tuesday or Thursday call. Approving puts it on the Calendar with the standing Zoom link and emails them." />
   if (phase === 'loading') return <>{header}<Loading /></>
 
   if (phase === 'unset') {
@@ -159,7 +159,7 @@ export default function CallBookingsSection() {
 
   return (
     <>
-      <PageHeader title="Call Bookings" sub="Members who’ve asked to host a Tuesday call. Approving puts it on the Calendar with the standing Zoom link and emails them.">
+      <PageHeader title="Call Bookings" sub="Members who’ve asked to host a Tuesday or Thursday call. Approving puts it on the Calendar with the standing Zoom link and emails them.">
         <button className="adm-btn sm" onClick={lock}>Lock</button>
       </PageHeader>
 
