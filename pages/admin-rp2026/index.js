@@ -51,7 +51,7 @@ function AdminApp() {
   else if (CONTENT_KINDS[view]) body = <ContentSection kind={CONTENT_KINDS[view]} intent={intent} clearIntent={clearIntent} go={go} />
 
   return (
-    <AdminShell view={view} go={go}>
+    <AdminShell view={view} go={go} wide={view === 'members' || view === 'pins'}>
       <Head>
         <title>Admin · The Rad Pad</title>
         <meta name="robots" content="noindex, nofollow" />

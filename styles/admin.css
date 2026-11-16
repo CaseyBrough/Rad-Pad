@@ -815,3 +815,7 @@ a.adm-btn { text-decoration: none; }
   .adm-grid.people { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .adm-group { scroll-margin-top: 70px; }
 }
+
+/* Members and Map Pins use the full page width. */
+.adm-inner.wide { max-width: none; }
+.adm-inner.wide .adm-sub { max-width: 80ch; }

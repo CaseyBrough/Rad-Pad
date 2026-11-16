@@ -34,7 +34,7 @@ export const NAV = [
   },
 ]
 
-export default function AdminShell({ view, go, children }) {
+export default function AdminShell({ view, go, wide, children }) {
   const { counts } = useAdmin()
   const [open, setOpen] = useState(false)
   const pick = id => { setOpen(false); go(id) }
@@ -84,7 +84,7 @@ export default function AdminShell({ view, go, children }) {
       <AdminPalette nav={NAV} go={go} />
 
       <main className="adm-main">
-        <div className="adm-inner">{children}</div>
+        <div className={`adm-inner${wide ? ' wide' : ''}`}>{children}</div>
       </main>
     </div>
   )

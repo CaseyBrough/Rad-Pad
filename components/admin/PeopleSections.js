@@ -7,14 +7,14 @@ import RevokePanel from './RevokePanel'
 import { Tile, countBy, placeGroup, NO_PLACE, initialsOf } from './Grid'
 
 const SORTS = [
-  { id: 'name', label: 'Name A–Z' },
-  { id: 'place', label: 'By location' },
-  { id: 'added', label: 'Recently added' },
+  { id: 'name', label: 'Sort: Name A–Z' },
+  { id: 'place', label: 'Sort: Location A–Z' },
+  { id: 'added', label: 'Sort: Recently added' },
 ]
 
 // Shared shape for Members and Map Pins: approved rows only (pending ones live
-// in Approvals), shown as a block grid, sortable by name or place, filterable
-// by state / region, edited in a slide-over, removed with undo.
+// in Approvals), shown as one full-width block grid, sortable by name, place or
+// date added, filterable by state / region, edited in a slide-over, removed with undo.
 function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, tile, noun, extra, intent, clearIntent }) {
   const { toast, refreshCounts, deleteWithUndo, isHidden } = useAdmin()
   const [items, setItems] = useState([])
@@ -50,29 +50,18 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
   const live = withPlace.filter(x => !isHidden(table, x.item.id))
   const placeOptions = useMemo(() => countBy(live, x => x.place, { last: NO_PLACE }), [live])
 
-  const groups = useMemo(() => {
+  // One flat grid: filtered by location and search, ordered by the chosen sort.
+  const visible = useMemo(() => {
     const byName = (a, b) => String(a.item.name || '').localeCompare(String(b.item.name || ''))
     const rows = live
       .filter(x => !place || x.place === place)
       .filter(x => matches(query, ...searchText(x.item), x.place))
-    if (sortId === 'added') return [{ key: 'all', rows }]
-    // Filtered or searched by name: one flat grid, no one-card letter headers.
-    if (sortId === 'name' && (place || query.trim())) return [{ key: 'all', rows: [...rows].sort(byName) }]
-    const keyOf = sortId === 'place'
-      ? x => x.place
-      : x => { const c = String(x.item.name || '').trim()[0]?.toUpperCase() || '#'; return /[A-Z]/.test(c) ? c : '#' }
-    const m = new Map()
-    for (const x of [...rows].sort(byName)) {
-      const k = keyOf(x)
-      if (!m.has(k)) m.set(k, [])
-      m.get(k).push(x)
-    }
-    return [...m.entries()]
-      .sort(([a], [b]) => (a === NO_PLACE) - (b === NO_PLACE) || a.localeCompare(b))
-      .map(([key, rows]) => ({ key, rows }))
+    if (sortId === 'added') return rows
+    if (sortId === 'place') return [...rows].sort((a, b) => (a.place === NO_PLACE) - (b.place === NO_PLACE) || a.place.localeCompare(b.place) || byName(a, b))
+    return [...rows].sort(byName)
   }, [live, place, query, sortId, searchText])
 
-  const shown = groups.reduce((n, g) => n + g.rows.length, 0)
+  const shown = visible.length
 
   async function save() {
     setSaving(true)
@@ -110,20 +99,10 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
               {SORTS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </div>
-          {sortId === 'name' && !query.trim() && !place && groups.length > 4 && (
-            <div className="adm-letters" aria-label="Jump to letter">
-              {groups.map(g => <a key={g.key} href={`#${table}-${g.key}`} onClick={e => { e.preventDefault(); document.getElementById(`${table}-${g.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{g.key}</a>)}
-            </div>
-          )}
           <div className="adm-count">{query.trim() || place ? `${shown} of ${live.length}` : live.length} {title.toLowerCase()} · click a card to edit</div>
-          {shown === 0 ? <EmptyState title="No matches">Try a different search or location.</EmptyState> : groups.map(g => (
-            g.key === 'all' ? <div key="all" className="adm-grid people">{g.rows.map(renderTile)}</div> : (
-              <div key={g.key} className="adm-group" id={`${table}-${g.key}`}>
-                <div className="adm-label">{g.key} <span className="adm-label-n">{g.rows.length}</span></div>
-                <div className="adm-grid people">{g.rows.map(renderTile)}</div>
-              </div>
-            )
-          ))}
+          {shown === 0 ? <EmptyState title="No matches">Try a different search or location.</EmptyState> : (
+            <div className="adm-grid people">{visible.map(renderTile)}</div>
+          )}
         </>
       )}
       {panel && (
