@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { useAdmin } from './AdminContext'
 import { CONTENT } from './contentConfig'
 import { Icon, PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches, useNewShortcut } from './ui'
+import { Tile, FilterChips, countBy } from './Grid'
 
 // Recordings / Resources / Events / Links: a searchable, sortable list, with
 // create + edit in a slide-over panel. Everything per-kind comes from CONTENT.
@@ -13,6 +14,7 @@ export default function ContentSection({ kind, intent, clearIntent, go }) {
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
   const [sortId, setSortId] = useState(cfg.sorts[0].id)
+  const [filter, setFilter] = useState('')
   const [panel, setPanel] = useState(null) // { id: string|null, form: {} }
   const [saving, setSaving] = useState(false)
   const searchRef = useRef(null)
@@ -79,6 +81,7 @@ export default function ContentSection({ kind, intent, clearIntent, go }) {
       .filter(i => !isHidden(cfg.table, i.id))
       .filter(i => (cfg.listFilter ? cfg.listFilter(i) : true))
       .filter(i => matches(query, ...cfg.searchText(i)))
+      .filter(i => !filter || !cfg.filterKey || i[cfg.filterKey] === filter)
     if (sort.id === 'az') {
       const label = i => (i[cfg.labelKey || 'title'] || '').toLowerCase()
       list = [...list].sort((a, b) => label(a).localeCompare(label(b)))
@@ -86,7 +89,7 @@ export default function ContentSection({ kind, intent, clearIntent, go }) {
       list = [...list].sort((a, b) => String(b[sort.key] || '').localeCompare(String(a[sort.key] || '')) * -sort.dir)
     }
     return list
-  }, [items, query, sortId, cfg, isHidden])
+  }, [items, query, sortId, cfg, isHidden, filter])
 
   // Events in date order are split into Coming up / Date TBA / Past.
   const sections = useMemo(() => {
@@ -97,7 +100,9 @@ export default function ContentSection({ kind, intent, clearIntent, go }) {
       .filter(g => g.rows.length)
   }, [cfg, sortId, visible])
 
-  const total = items.filter(i => !isHidden(cfg.table, i.id)).filter(i => (cfg.listFilter ? cfg.listFilter(i) : true)).length
+  const liveItems = items.filter(i => !isHidden(cfg.table, i.id)).filter(i => (cfg.listFilter ? cfg.listFilter(i) : true))
+  const total = liveItems.length
+  const filterOptions = cfg.filterKey ? countBy(liveItems, i => i[cfg.filterKey]) : []
   const linkWaiting = kind === 'link' ? counts?.linksPending || 0 : 0
 
   const renderRow = item => {
@@ -122,6 +127,11 @@ export default function ContentSection({ kind, intent, clearIntent, go }) {
         </div>
       </div>
     )
+  }
+
+  const renderTile = item => {
+    const t = cfg.tile(item)
+    return <Tile key={item.id} {...t} onOpen={() => openEdit(item)} onDelete={() => remove(item)} />
   }
 
   const editing = panel?.id ? items.find(i => i.id === panel.id) : null
@@ -149,7 +159,8 @@ export default function ContentSection({ kind, intent, clearIntent, go }) {
               {cfg.sorts.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </div>
-          <div className="adm-count">{query.trim() ? `${visible.length} of ${total}` : total} {cfg.plural.toLowerCase()} · click a row to edit</div>
+          {filterOptions.length > 1 && <FilterChips options={filterOptions} value={filter} onChange={setFilter} total={total} />}
+          <div className="adm-count">{query.trim() || filter ? `${visible.length} of ${total}` : total} {cfg.plural.toLowerCase()} · click {cfg.layout === 'grid' ? 'a card' : 'a row'} to edit</div>
           {visible.length === 0 ? (
             <EmptyState title="No matches">Try a different search.</EmptyState>
           ) : sections ? (
@@ -164,6 +175,8 @@ export default function ContentSection({ kind, intent, clearIntent, go }) {
                 <div className="adm-list">{g.rows.map(renderRow)}</div>
               </div>
             ))
+          ) : cfg.layout === 'grid' ? (
+            <div className="adm-grid">{visible.map(renderTile)}</div>
           ) : (
             <div className="adm-list">{visible.map(renderRow)}</div>
           )}

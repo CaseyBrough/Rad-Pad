@@ -6,6 +6,8 @@ import { CALL_TYPES, SUB_TOPIC_PLACEHOLDER, callTypeDot } from '../../lib/callTy
 import { ytId, ytThumb } from '../../lib/youtube'
 import { hasDate, isNotice } from '../../lib/calendar'
 import { fmtDay, todayKey } from './dates'
+import { LinkLogo } from './Grid'
+import { Icon } from './ui'
 
 const RES_CATS = ['Templates', 'Guides', 'Scripts', 'Finance']
 const FILE_TYPES = ['PDF', 'Notion', 'Google Sheets', 'Google Doc', 'Link']
@@ -83,6 +85,15 @@ export const CONTENT = {
     sorts: [byAdded, byAZ],
     searchText: i => [i.title, i.category, i.file_type],
     row: i => ({ title: i.title || '(untitled)', meta: dot(i.category, i.file_type) }),
+    layout: 'grid',
+    filterKey: 'category',
+    tile: i => ({
+      media: <span className="adm-doc"><Icon name="resource" size={18} /><small>{i.file_type || 'File'}</small></span>,
+      title: i.title || '(untitled)',
+      meta: i.category,
+      desc: i.description,
+      chips: [!String(i.file_url || '').trim() && { text: 'No file link', tone: 'pink' }],
+    }),
     panelTop: (form, id) => id ? <div className="adm-panel-top slim"><SiteLink href="/resources" /></div> : null,
     fields: [
       { key: 'title', label: 'Title', required: true, placeholder: 'Discovery Call Script', full: true },
@@ -153,6 +164,15 @@ export const CONTENT = {
     labelKey: 'name',
     searchText: i => [i.name, i.category, i.url, i.description],
     row: i => ({ icon: i.emoji || '🔗', title: i.name || '(untitled)', meta: dot(i.category, hostOf(i.url), i.perk_code && `🎟 ${i.perk_code}`) }),
+    layout: 'grid',
+    filterKey: 'category',
+    tile: i => ({
+      media: <LinkLogo url={i.url} emoji={i.emoji} />,
+      title: i.name || '(untitled)',
+      meta: hostOf(i.url),
+      desc: i.description,
+      chips: [i.category && { text: i.category }, i.perk_code && { text: `🎟 ${i.perk_code}`, tone: 'amber' }],
+    }),
     panelTop: (form, id) => id ? <div className="adm-panel-top slim"><SiteLink href="/links" />{form.url && <SiteLink href={form.url} label="Open link" />}</div> : null,
     fields: [
       { key: 'name', label: 'Name', required: true, placeholder: 'HoneyBook' },

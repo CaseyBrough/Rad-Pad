@@ -1,24 +1,27 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAdmin } from './AdminContext'
-import { PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches, useNewShortcut } from './ui'
+import { Icon, PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches, useNewShortcut } from './ui'
 import { AREA_OPTIONS, describePlacement } from '../../lib/placement'
 import RevokePanel from './RevokePanel'
+import { Tile, countBy, placeGroup, NO_PLACE, initialsOf } from './Grid'
 
-const sub = (...p) => p.filter(Boolean).join(' · ')
-
-function initialsOf(name = '') {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  return ((parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
-}
+const SORTS = [
+  { id: 'name', label: 'Name A–Z' },
+  { id: 'place', label: 'By location' },
+  { id: 'added', label: 'Recently added' },
+]
 
 // Shared shape for Members and Map Pins: approved rows only (pending ones live
-// in Approvals), searchable, edited in a slide-over, removed with undo.
-function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, row, noun, extra, intent, clearIntent }) {
+// in Approvals), shown as a block grid, sortable by name or place, filterable
+// by state / region, edited in a slide-over, removed with undo.
+function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, tile, noun, extra, intent, clearIntent }) {
   const { toast, refreshCounts, deleteWithUndo, isHidden } = useAdmin()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [sortId, setSortId] = useState('name')
+  const [place, setPlace] = useState('')
   const [panel, setPanel] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -42,8 +45,34 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
   const searchRef = useRef(null)
   useNewShortcut({ onNew: null, searchRef, disabled: !!panel })
 
-  const live = items.filter(i => !isHidden(table, i.id))
-  const visible = useMemo(() => live.filter(i => matches(query, ...searchText(i))), [live, query]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Where each person is, worked out once per load ("Utah", "Ontario", "Europe"…).
+  const withPlace = useMemo(() => items.map(i => ({ item: i, place: placeGroup(i.location, i.map_area) })), [items])
+  const live = withPlace.filter(x => !isHidden(table, x.item.id))
+  const placeOptions = useMemo(() => countBy(live, x => x.place, { last: NO_PLACE }), [live])
+
+  const groups = useMemo(() => {
+    const byName = (a, b) => String(a.item.name || '').localeCompare(String(b.item.name || ''))
+    const rows = live
+      .filter(x => !place || x.place === place)
+      .filter(x => matches(query, ...searchText(x.item), x.place))
+    if (sortId === 'added') return [{ key: 'all', rows }]
+    // Filtered or searched by name: one flat grid, no one-card letter headers.
+    if (sortId === 'name' && (place || query.trim())) return [{ key: 'all', rows: [...rows].sort(byName) }]
+    const keyOf = sortId === 'place'
+      ? x => x.place
+      : x => { const c = String(x.item.name || '').trim()[0]?.toUpperCase() || '#'; return /[A-Z]/.test(c) ? c : '#' }
+    const m = new Map()
+    for (const x of [...rows].sort(byName)) {
+      const k = keyOf(x)
+      if (!m.has(k)) m.set(k, [])
+      m.get(k).push(x)
+    }
+    return [...m.entries()]
+      .sort(([a], [b]) => (a === NO_PLACE) - (b === NO_PLACE) || a.localeCompare(b))
+      .map(([key, rows]) => ({ key, rows }))
+  }, [live, place, query, sortId, searchText])
+
+  const shown = groups.reduce((n, g) => n + g.rows.length, 0)
 
   async function save() {
     setSaving(true)
@@ -57,6 +86,13 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
     refreshCounts()
   }
 
+  const renderTile = ({ item, place: where }) => (
+    <Tile key={item.id} {...tile(item, where)}
+      onOpen={() => setPanel({ form: { ...item } })}
+      deleteLabel="Remove"
+      onDelete={() => deleteWithUndo({ table, id: item.id, label: item.name, onDone: load })} />
+  )
+
   return (
     <>
       <PageHeader title={title} sub={subtitle} />
@@ -64,30 +100,30 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
         <EmptyState title={`No ${title.toLowerCase()} yet`}>Approved submissions show up here.</EmptyState>
       ) : (
         <>
-          <div className="adm-toolbar"><SearchBox ref={searchRef} value={query} onChange={setQuery} placeholder={searchHint} /></div>
-          <div className="adm-count">{query.trim() ? `${visible.length} of ${live.length}` : live.length} {title.toLowerCase()} · click a row to edit</div>
-          {visible.length === 0 ? <EmptyState title="No matches">Try a different search.</EmptyState> : (
-            <div className="adm-list">
-              {visible.map(item => {
-                const r = row(item)
-                return (
-                  <div key={item.id} className="adm-row click" tabIndex={0} role="button" aria-label={`Edit ${r.title}`}
-                    onClick={() => setPanel({ form: { ...item } })}
-                    onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setPanel({ form: { ...item } }) } }}>
-                    {r.photo ? <img className="adm-avatar" src={r.photo} alt="" />
-                      : r.initials ? <div className="adm-avatar ph" aria-hidden="true">{r.initials}</div> : null}
-                    <div className="adm-row-body">
-                      <div className="adm-row-title">{r.title}</div>
-                      {r.meta && <div className="adm-row-meta">{r.meta}</div>}
-                    </div>
-                    <div className="adm-row-actions">
-                      <button className="adm-btn danger sm" aria-label={`Remove ${r.title}`} onClick={e => { e.stopPropagation(); deleteWithUndo({ table, id: item.id, label: r.title, onDone: load }) }}>Remove</button>
-                    </div>
-                  </div>
-                )
-              })}
+          <div className="adm-toolbar">
+            <SearchBox ref={searchRef} value={query} onChange={setQuery} placeholder={searchHint} />
+            <select className="adm-select" value={place} onChange={e => setPlace(e.target.value)} aria-label="Filter by location">
+              <option value="">All locations ({live.length})</option>
+              {placeOptions.map(o => <option key={o.value} value={o.value}>{o.label} ({o.count})</option>)}
+            </select>
+            <select className="adm-select" value={sortId} onChange={e => setSortId(e.target.value)} aria-label="Sort order">
+              {SORTS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </div>
+          {sortId === 'name' && !query.trim() && !place && groups.length > 4 && (
+            <div className="adm-letters" aria-label="Jump to letter">
+              {groups.map(g => <a key={g.key} href={`#${table}-${g.key}`} onClick={e => { e.preventDefault(); document.getElementById(`${table}-${g.key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}>{g.key}</a>)}
             </div>
           )}
+          <div className="adm-count">{query.trim() || place ? `${shown} of ${live.length}` : live.length} {title.toLowerCase()} · click a card to edit</div>
+          {shown === 0 ? <EmptyState title="No matches">Try a different search or location.</EmptyState> : groups.map(g => (
+            g.key === 'all' ? <div key="all" className="adm-grid people">{g.rows.map(renderTile)}</div> : (
+              <div key={g.key} className="adm-group" id={`${table}-${g.key}`}>
+                <div className="adm-label">{g.key} <span className="adm-label-n">{g.rows.length}</span></div>
+                <div className="adm-grid people">{g.rows.map(renderTile)}</div>
+              </div>
+            )
+          ))}
         </>
       )}
       {panel && (
@@ -120,10 +156,16 @@ export function MembersSection({ intent, clearIntent }) {
     <ApprovedList intent={intent} clearIntent={clearIntent}
       table="members" noun="Member" title="Members"
       subtitle="Approved Directory profiles. New submissions wait in Approvals first."
-      searchHint="Search by name, location or specialty…"
+      searchHint="Search members…"
       fields={MEMBER_FIELDS}
       searchText={m => [m.name, m.location, m.specialty, m.bio]}
-      row={m => ({ photo: m.photo_url, initials: initialsOf(m.name), title: m.name, meta: sub(m.specialty, m.location) })}
+      tile={m => ({
+        className: 'person',
+        media: m.photo_url ? <img className="adm-tile-photo" src={m.photo_url} alt="" loading="lazy" /> : <div className="adm-tile-photo ph" aria-hidden="true">{initialsOf(m.name)}</div>,
+        title: m.name,
+        meta: m.location || 'No location',
+        chips: [m.specialty && { text: m.specialty }],
+      })}
     />
   )
 }
@@ -133,16 +175,22 @@ export function PinsSection({ intent, clearIntent }) {
     <ApprovedList intent={intent} clearIntent={clearIntent}
       table="map_pins" noun="Pin" title="Map Pins"
       subtitle="Everyone shown on the /map page. Separate from the Directory - editing a pin never touches a Directory profile."
-      searchHint="Search by name or location…"
+      searchHint="Search pins…"
       fields={[
         { key: 'name', label: 'Name', required: true },
         { key: 'location', label: 'Location' },
         { key: 'map_area', label: 'Where it shows on the map', type: 'select', options: AREA_OPTIONS, full: true },
       ]}
       searchText={p => [p.name, p.location]}
-      row={p => {
+      tile={(p, where) => {
         const d = describePlacement(p)
-        return { title: p.name, meta: <>{p.location}<span className={`adm-place ${d.ok ? 'ok' : 'warn'}`}>{d.text}</span></> }
+        return {
+          className: 'pin',
+          media: <div className={`adm-pin-mark${d.ok ? '' : ' warn'}`} aria-hidden="true"><Icon name="pin" size={16} /></div>,
+          title: p.name,
+          meta: p.location || 'No location',
+          chips: [d.ok ? { text: where, tone: 'cyan' } : { text: 'Not placed', tone: 'pink' }],
+        }
       }}
       extra={form => {
         const d = describePlacement(form)
