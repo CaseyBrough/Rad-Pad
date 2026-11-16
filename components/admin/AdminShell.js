@@ -1,11 +1,19 @@
 import { useState } from 'react'
 import { useAdmin } from './AdminContext'
 import { Icon } from './ui'
+import AdminPalette from './AdminPalette'
 
 // Sidebar structure. `badge` names a key in the live counts object.
 export const NAV = [
   { items: [{ id: 'overview', label: 'Overview', icon: 'overview' }] },
-  { items: [{ id: 'approvals', label: 'Approvals', icon: 'approvals', badge: 'pending' }] },
+  {
+    label: 'Inbox',
+    items: [
+      { id: 'approvals', label: 'Approvals', icon: 'approvals', badge: 'pending' },
+      { id: 'applications', label: 'New Applications', icon: 'userPlus' },
+      { id: 'bookings', label: 'Call Bookings', icon: 'video', badge: 'bookingsPending' },
+    ],
+  },
   {
     label: 'Content',
     items: [
@@ -19,8 +27,6 @@ export const NAV = [
   {
     label: 'People',
     items: [
-      { id: 'applications', label: 'New Applications', icon: 'approvals' },
-      { id: 'bookings', label: 'Call Bookings', icon: 'event', badge: 'bookingsPending' },
       { id: 'members', label: 'Members', icon: 'member' },
       { id: 'pins', label: 'Map Pins', icon: 'pin' },
       { id: 'access', label: 'Login Access', icon: 'key', quiet: 'access' },
@@ -28,7 +34,7 @@ export const NAV = [
   },
 ]
 
-export default function AdminShell({ view, go, children }) {
+export default function AdminShell({ view, go, wide, children }) {
   const { counts } = useAdmin()
   const [open, setOpen] = useState(false)
   const pick = id => { setOpen(false); go(id) }
@@ -71,11 +77,14 @@ export default function AdminShell({ view, go, children }) {
         <div className="adm-side-foot">
           <a href="/" target="_blank" rel="noopener noreferrer">View the site ↗</a>
           <div>Keep this URL private.</div>
+          <div className="adm-kbd-hint"><kbd>⌘</kbd><kbd>K</kbd> jump anywhere</div>
         </div>
       </aside>
 
+      <AdminPalette nav={NAV} go={go} />
+
       <main className="adm-main">
-        <div className="adm-inner">{children}</div>
+        <div className={`adm-inner${wide ? ' wide' : ''}`}>{children}</div>
       </main>
     </div>
   )

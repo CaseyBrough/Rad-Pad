@@ -1,24 +1,27 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAdmin } from './AdminContext'
-import { PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches } from './ui'
+import { Icon, PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches, useNewShortcut } from './ui'
 import { AREA_OPTIONS, describePlacement } from '../../lib/placement'
 import RevokePanel from './RevokePanel'
+import { Tile, countBy, placeGroup, NO_PLACE, initialsOf } from './Grid'
 
-const sub = (...p) => p.filter(Boolean).join(' · ')
-
-function initialsOf(name = '') {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  return ((parts[0]?.[0] || '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
-}
+const SORTS = [
+  { id: 'name', label: 'Sort: Name A–Z' },
+  { id: 'place', label: 'Sort: Location A–Z' },
+  { id: 'added', label: 'Sort: Recently added' },
+]
 
 // Shared shape for Members and Map Pins: approved rows only (pending ones live
-// in Approvals), searchable, edited in a slide-over, removed with undo.
-function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, row, noun, extra }) {
+// in Approvals), shown as one full-width block grid, sortable by name, place or
+// date added, filterable by state / region, edited in a slide-over, removed with undo.
+function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, tile, noun, extra, intent, clearIntent }) {
   const { toast, refreshCounts, deleteWithUndo, isHidden } = useAdmin()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [query, setQuery] = useState('')
+  const [sortId, setSortId] = useState('name')
+  const [place, setPlace] = useState('')
   const [panel, setPanel] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -31,8 +34,34 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
 
   useEffect(() => { load() }, [load])
 
-  const live = items.filter(i => !isHidden(table, i.id))
-  const visible = useMemo(() => live.filter(i => matches(query, ...searchText(i))), [live, query]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Jump menu: open a specific row once the list has loaded.
+  useEffect(() => {
+    if (!intent?.editId || loading) return
+    const hit = items.find(i => i.id === intent.editId)
+    if (hit) setPanel({ form: { ...hit } })
+    clearIntent?.()
+  }, [intent, loading, items, clearIntent])
+
+  const searchRef = useRef(null)
+  useNewShortcut({ onNew: null, searchRef, disabled: !!panel })
+
+  // Where each person is, worked out once per load ("Utah", "Ontario", "Europe"…).
+  const withPlace = useMemo(() => items.map(i => ({ item: i, place: placeGroup(i.location, i.map_area) })), [items])
+  const live = withPlace.filter(x => !isHidden(table, x.item.id))
+  const placeOptions = useMemo(() => countBy(live, x => x.place, { last: NO_PLACE }), [live])
+
+  // One flat grid: filtered by location and search, ordered by the chosen sort.
+  const visible = useMemo(() => {
+    const byName = (a, b) => String(a.item.name || '').localeCompare(String(b.item.name || ''))
+    const rows = live
+      .filter(x => !place || x.place === place)
+      .filter(x => matches(query, ...searchText(x.item), x.place))
+    if (sortId === 'added') return rows
+    if (sortId === 'place') return [...rows].sort((a, b) => (a.place === NO_PLACE) - (b.place === NO_PLACE) || a.place.localeCompare(b.place) || byName(a, b))
+    return [...rows].sort(byName)
+  }, [live, place, query, sortId, searchText])
+
+  const shown = visible.length
 
   async function save() {
     setSaving(true)
@@ -46,6 +75,13 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
     refreshCounts()
   }
 
+  const renderTile = ({ item, place: where }) => (
+    <Tile key={item.id} {...tile(item, where)}
+      onOpen={() => setPanel({ form: { ...item } })}
+      deleteLabel="Remove"
+      onDelete={() => deleteWithUndo({ table, id: item.id, label: item.name, onDone: load })} />
+  )
+
   return (
     <>
       <PageHeader title={title} sub={subtitle} />
@@ -53,35 +89,25 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
         <EmptyState title={`No ${title.toLowerCase()} yet`}>Approved submissions show up here.</EmptyState>
       ) : (
         <>
-          <div className="adm-toolbar"><SearchBox value={query} onChange={setQuery} placeholder={searchHint} /></div>
-          <div className="adm-count">{query.trim() ? `${visible.length} of ${live.length}` : live.length} {title.toLowerCase()}</div>
-          {visible.length === 0 ? <EmptyState title="No matches">Try a different search.</EmptyState> : (
-            <div className="adm-list">
-              {visible.map(item => {
-                const r = row(item)
-                return (
-                  <div key={item.id} className="adm-row click" tabIndex={0} role="button"
-                    onClick={() => setPanel({ form: { ...item } })}
-                    onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setPanel({ form: { ...item } }) } }}>
-                    {r.photo ? <img className="adm-avatar" src={r.photo} alt="" />
-                      : r.initials ? <div className="adm-avatar ph" aria-hidden="true">{r.initials}</div> : null}
-                    <div className="adm-row-body">
-                      <div className="adm-row-title">{r.title}</div>
-                      {r.meta && <div className="adm-row-meta">{r.meta}</div>}
-                    </div>
-                    <div className="adm-row-actions">
-                      <button className="adm-btn cyan sm" onClick={e => { e.stopPropagation(); setPanel({ form: { ...item } }) }}>Edit</button>
-                      <button className="adm-btn danger sm" onClick={e => { e.stopPropagation(); deleteWithUndo({ table, id: item.id, label: r.title, onDone: load }) }}>Remove</button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+          <div className="adm-toolbar">
+            <SearchBox ref={searchRef} value={query} onChange={setQuery} placeholder={searchHint} />
+            <select className="adm-select" value={place} onChange={e => setPlace(e.target.value)} aria-label="Filter by location">
+              <option value="">All locations ({live.length})</option>
+              {placeOptions.map(o => <option key={o.value} value={o.value}>{o.label} ({o.count})</option>)}
+            </select>
+            <select className="adm-select" value={sortId} onChange={e => setSortId(e.target.value)} aria-label="Sort order">
+              {SORTS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            </select>
+          </div>
+          <div className="adm-count">{query.trim() || place ? `${shown} of ${live.length}` : live.length} {title.toLowerCase()} · click a card to edit</div>
+          {shown === 0 ? <EmptyState title="No matches">Try a different search or location.</EmptyState> : (
+            <div className="adm-grid people">{visible.map(renderTile)}</div>
           )}
         </>
       )}
       {panel && (
-        <SidePanel title={`Edit ${noun.toLowerCase()}`} onClose={() => setPanel(null)} onSubmit={save} saving={saving} canSave={!!String(panel.form.name || '').trim()} submitLabel="Save changes">
+        <SidePanel title={`Edit ${noun.toLowerCase()}`} onClose={() => setPanel(null)} onSubmit={save} saving={saving} canSave={!!String(panel.form.name || '').trim()} submitLabel="Save changes"
+          deleteLabel="Remove" onDelete={() => { const f = panel.form; setPanel(null); deleteWithUndo({ table, id: f.id, label: f.name, onDone: load }) }}>
           <div className="adm-form-grid">
             {fields.map(f => (
               <Field key={f.key} spec={f} form={panel.form} onChange={(k, v) => setPanel(p => ({ ...p, form: { ...p.form, [k]: v } }))} />
@@ -104,34 +130,46 @@ const MEMBER_FIELDS = [
   { key: 'instagram', label: 'Instagram' },
 ]
 
-export function MembersSection() {
+export function MembersSection({ intent, clearIntent }) {
   return (
-    <ApprovedList
+    <ApprovedList intent={intent} clearIntent={clearIntent}
       table="members" noun="Member" title="Members"
       subtitle="Approved Directory profiles. New submissions wait in Approvals first."
-      searchHint="Search by name, location or specialty…"
+      searchHint="Search members…"
       fields={MEMBER_FIELDS}
       searchText={m => [m.name, m.location, m.specialty, m.bio]}
-      row={m => ({ photo: m.photo_url, initials: initialsOf(m.name), title: m.name, meta: sub(m.specialty, m.location) })}
+      tile={m => ({
+        className: 'person',
+        media: m.photo_url ? <img className="adm-tile-photo" src={m.photo_url} alt="" loading="lazy" /> : <div className="adm-tile-photo ph" aria-hidden="true">{initialsOf(m.name)}</div>,
+        title: m.name,
+        meta: m.location || 'No location',
+        chips: [m.specialty && { text: m.specialty }],
+      })}
     />
   )
 }
 
-export function PinsSection() {
+export function PinsSection({ intent, clearIntent }) {
   return (
-    <ApprovedList
+    <ApprovedList intent={intent} clearIntent={clearIntent}
       table="map_pins" noun="Pin" title="Map Pins"
       subtitle="Everyone shown on the /map page. Separate from the Directory - editing a pin never touches a Directory profile."
-      searchHint="Search by name or location…"
+      searchHint="Search pins…"
       fields={[
         { key: 'name', label: 'Name', required: true },
         { key: 'location', label: 'Location' },
         { key: 'map_area', label: 'Where it shows on the map', type: 'select', options: AREA_OPTIONS, full: true },
       ]}
       searchText={p => [p.name, p.location]}
-      row={p => {
+      tile={(p, where) => {
         const d = describePlacement(p)
-        return { title: p.name, meta: <>{p.location}<span className={`adm-place ${d.ok ? 'ok' : 'warn'}`}>{d.text}</span></> }
+        return {
+          className: 'pin',
+          media: <div className={`adm-pin-mark${d.ok ? '' : ' warn'}`} aria-hidden="true"><Icon name="pin" size={16} /></div>,
+          title: p.name,
+          meta: p.location || 'No location',
+          chips: [d.ok ? { text: where, tone: 'cyan' } : { text: 'Not placed', tone: 'pink' }],
+        }
       }}
       extra={form => {
         const d = describePlacement(form)

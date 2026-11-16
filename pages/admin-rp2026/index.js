@@ -45,13 +45,13 @@ function AdminApp() {
   else if (view === 'announcements') body = <AnnouncementsSection />
   else if (view === 'applications') body = <IntakeSection />
   else if (view === 'bookings') body = <CallBookingsSection />
-  else if (view === 'members') body = <MembersSection />
-  else if (view === 'pins') body = <PinsSection />
+  else if (view === 'members') body = <MembersSection intent={intent} clearIntent={clearIntent} />
+  else if (view === 'pins') body = <PinsSection intent={intent} clearIntent={clearIntent} />
   else if (view === 'access') body = <AccessSection />
   else if (CONTENT_KINDS[view]) body = <ContentSection kind={CONTENT_KINDS[view]} intent={intent} clearIntent={clearIntent} go={go} />
 
   return (
-    <AdminShell view={view} go={go}>
+    <AdminShell view={view} go={go} wide={view === 'members' || view === 'pins' || view === 'overview'}>
       <Head>
         <title>Admin · The Rad Pad</title>
         <meta name="robots" content="noindex, nofollow" />
