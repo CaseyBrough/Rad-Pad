@@ -2,7 +2,10 @@
 // data: table, form fields, default values, and how a row is summarised.
 // ContentSection renders all four from this - adding a field is one line here.
 
-import { CALL_TYPES, SUB_TOPIC_PLACEHOLDER } from '../../lib/callTypes'
+import { CALL_TYPES, SUB_TOPIC_PLACEHOLDER, callTypeDot } from '../../lib/callTypes'
+import { ytId, ytThumb } from '../../lib/youtube'
+import { hasDate, isNotice } from '../../lib/calendar'
+import { fmtDay, todayKey } from './dates'
 
 const RES_CATS = ['Templates', 'Guides', 'Scripts', 'Finance']
 const FILE_TYPES = ['PDF', 'Notion', 'Google Sheets', 'Google Doc', 'Link']
@@ -14,10 +17,29 @@ function hostOf(url) {
   try { return new URL(url).hostname.replace(/^www\./, '') } catch { return '' }
 }
 
-// YYYY-MM-DD in local time, comparable as a string with the events.event_date column.
-function today() {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const blank = v => !String(v || '').trim()
+
+// "View on site" link at the top of an edit panel (only for saved rows).
+function SiteLink({ href, label = 'View on site' }) {
+  return (
+    <a className="adm-site-link" href={href} target="_blank" rel="noopener noreferrer">{label} ↗</a>
+  )
+}
+
+function RecordingTop(form, id) {
+  const yid = ytId(form.video_url)
+  return (
+    <div className="adm-panel-top">
+      {yid ? (
+        <a className="adm-panel-thumb" href={`https://www.youtube.com/watch?v=${yid}`} target="_blank" rel="noopener noreferrer" title="Open on YouTube">
+          <img src={ytThumb(yid)} alt="" />
+        </a>
+      ) : (
+        <div className="adm-panel-thumb ph">{form.video_url ? 'Not a YouTube link' : 'Paste a YouTube link below to see the thumbnail'}</div>
+      )}
+      {id && <SiteLink href={`/recordings?v=${id}`} />}
+    </div>
+  )
 }
 
 const byAdded = { id: 'added', label: 'Recently added' }
@@ -31,10 +53,16 @@ export const CONTENT = {
     required: ['title'],
     sorts: [byAdded, { id: 'date', label: 'By date', key: 'date', dir: -1 }, byAZ],
     searchText: i => [i.title, i.host, i.call_type, i.sub_topic],
-    row: i => ({
-      title: i.title || '(untitled)',
-      meta: dot(i.date, i.duration, i.call_type && (i.sub_topic ? `${i.call_type} · ${i.sub_topic}` : i.call_type), i.host && `Host: ${i.host}`),
-    }),
+    row: i => {
+      const yid = ytId(i.video_url)
+      return {
+        thumb: yid ? ytThumb(yid) : null,
+        title: i.title || '(untitled)',
+        meta: dot(fmtDay(i.date), i.duration, i.call_type && (i.sub_topic ? `${i.call_type} · ${i.sub_topic}` : i.call_type), i.host && `Host: ${i.host}`),
+        chip: !yid ? { text: i.video_url ? 'Not YouTube' : 'No video', tone: 'pink' } : null,
+      }
+    },
+    panelTop: RecordingTop,
     fields: [
       { key: 'title', label: 'Title', required: true, placeholder: 'Q2 Sales Sprint…', full: true },
       { key: 'host', label: 'Host', placeholder: 'Casey' },
@@ -55,6 +83,7 @@ export const CONTENT = {
     sorts: [byAdded, byAZ],
     searchText: i => [i.title, i.category, i.file_type],
     row: i => ({ title: i.title || '(untitled)', meta: dot(i.category, i.file_type) }),
+    panelTop: (form, id) => id ? <div className="adm-panel-top slim"><SiteLink href="/resources" /></div> : null,
     fields: [
       { key: 'title', label: 'Title', required: true, placeholder: 'Discovery Call Script', full: true },
       { key: 'category', label: 'Category', type: 'select', options: RES_CATS },
@@ -69,13 +98,36 @@ export const CONTENT = {
     sub: 'Upcoming and past calls on the Calendar page. Members click the Zoom link to join.',
     blank: { title: '', description: '', event_date: '', time: '', duration: '', type: 'Community Call', platform: 'Zoom', zoom_url: '' },
     required: ['title'],
-    sorts: [{ id: 'date', label: 'By date', key: 'event_date', dir: -1 }, byAdded, byAZ],
+    sorts: [{ id: 'date', label: 'By date', key: 'event_date', dir: -1, grouped: true }, byAdded, byAZ],
+    // Grouped view: soonest upcoming first, then undated drafts, then past (folded away).
+    groupOf: i => (!hasDate(i) ? 'tba' : i.event_date >= todayKey() ? 'upcoming' : 'past'),
+    groups: [
+      { id: 'upcoming', label: 'Coming up', order: (a, b) => a.event_date.localeCompare(b.event_date) },
+      { id: 'tba', label: 'Date to be announced', hot: true },
+      { id: 'past', label: 'Past', collapsed: true },
+    ],
     searchText: i => [i.title, i.type, i.platform],
-    row: i => ({
-      title: i.title || '(untitled)',
-      meta: dot(i.event_date, i.time, i.type),
-      chip: i.event_date ? (i.event_date >= today() ? { text: 'Upcoming', tone: 'cyan' } : { text: 'Past' }) : null,
-    }),
+    row: i => {
+      const notice = isNotice(i)
+      const upcoming = hasDate(i) && i.event_date >= todayKey()
+      const needsTime = upcoming && !notice && blank(i.time)
+      const needsZoom = upcoming && !notice && blank(i.zoom_url)
+      return {
+        dot: notice ? 'none' : (callTypeDot(i.type) || 'cyan'),
+        dim: notice,
+        title: i.title || '(untitled)',
+        meta: (
+          <>
+            {hasDate(i) ? fmtDay(i.event_date) : 'No date'}
+            {' · '}
+            {needsTime ? <span className="adm-warn-text">No time set</span> : (i.time || 'All day')}
+            {!notice && i.type ? ` · ${i.type}` : ''}
+          </>
+        ),
+        chip: notice ? { text: 'No call' } : needsZoom ? { text: 'No Zoom link', tone: 'pink' } : null,
+      }
+    },
+    panelTop: (form, id) => id ? <div className="adm-panel-top slim"><SiteLink href="/calendar" label="View on calendar" /></div> : null,
     fields: [
       { key: 'title', label: 'Title', required: true, placeholder: 'Weekly Group Call', full: true },
       { key: 'type', label: 'Type', type: 'select', options: CALL_TYPES },
@@ -101,6 +153,7 @@ export const CONTENT = {
     labelKey: 'name',
     searchText: i => [i.name, i.category, i.url, i.description],
     row: i => ({ icon: i.emoji || '🔗', title: i.name || '(untitled)', meta: dot(i.category, hostOf(i.url), i.perk_code && `🎟 ${i.perk_code}`) }),
+    panelTop: (form, id) => id ? <div className="adm-panel-top slim"><SiteLink href="/links" />{form.url && <SiteLink href={form.url} label="Open link" />}</div> : null,
     fields: [
       { key: 'name', label: 'Name', required: true, placeholder: 'HoneyBook' },
       { key: 'emoji', label: 'Emoji', placeholder: '📋' },

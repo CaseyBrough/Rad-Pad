@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react'
 // Slide-over form panel shared by the admin dashboard and the member pages.
 // Esc / backdrop click closes it; Enter in a text field submits; page scroll is
 // locked while it's open. Styles live in admin.css (.adm-panel, .adm-overlay).
-export default function SidePanel({ title, onClose, onSubmit, saving, canSave = true, submitLabel = 'Save', children }) {
+export default function SidePanel({ title, onClose, onSubmit, saving, canSave = true, submitLabel = 'Save', onDelete, deleteLabel = 'Delete', children }) {
   const bodyRef = useRef(null)
   // Callers pass a fresh onClose every render; keep the latest in a ref so the
   // setup below runs once on open (not on every keystroke, which would steal
@@ -43,6 +43,7 @@ export default function SidePanel({ title, onClose, onSubmit, saving, canSave = 
         <div className="adm-panel-foot">
           <button type="submit" className="adm-btn primary" disabled={!canSave || saving}>{saving ? 'Saving…' : submitLabel}</button>
           <button type="button" className="adm-btn" onClick={onClose}>Cancel</button>
+          {onDelete && <button type="button" className="adm-btn danger adm-panel-del" onClick={onDelete}>{deleteLabel}</button>}
         </div>
       </form>
     </>

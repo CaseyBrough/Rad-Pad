@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { supabase } from '../../lib/supabase'
 import { useAdmin } from './AdminContext'
-import { PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches } from './ui'
+import { PageHeader, EmptyState, Loading, SearchBox, Field, SidePanel, matches, useNewShortcut } from './ui'
 import { AREA_OPTIONS, describePlacement } from '../../lib/placement'
 import RevokePanel from './RevokePanel'
 
@@ -14,7 +14,7 @@ function initialsOf(name = '') {
 
 // Shared shape for Members and Map Pins: approved rows only (pending ones live
 // in Approvals), searchable, edited in a slide-over, removed with undo.
-function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, row, noun, extra }) {
+function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, row, noun, extra, intent, clearIntent }) {
   const { toast, refreshCounts, deleteWithUndo, isHidden } = useAdmin()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -30,6 +30,17 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
   }, [table, toast])
 
   useEffect(() => { load() }, [load])
+
+  // Jump menu: open a specific row once the list has loaded.
+  useEffect(() => {
+    if (!intent?.editId || loading) return
+    const hit = items.find(i => i.id === intent.editId)
+    if (hit) setPanel({ form: { ...hit } })
+    clearIntent?.()
+  }, [intent, loading, items, clearIntent])
+
+  const searchRef = useRef(null)
+  useNewShortcut({ onNew: null, searchRef, disabled: !!panel })
 
   const live = items.filter(i => !isHidden(table, i.id))
   const visible = useMemo(() => live.filter(i => matches(query, ...searchText(i))), [live, query]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -53,14 +64,14 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
         <EmptyState title={`No ${title.toLowerCase()} yet`}>Approved submissions show up here.</EmptyState>
       ) : (
         <>
-          <div className="adm-toolbar"><SearchBox value={query} onChange={setQuery} placeholder={searchHint} /></div>
-          <div className="adm-count">{query.trim() ? `${visible.length} of ${live.length}` : live.length} {title.toLowerCase()}</div>
+          <div className="adm-toolbar"><SearchBox ref={searchRef} value={query} onChange={setQuery} placeholder={searchHint} /></div>
+          <div className="adm-count">{query.trim() ? `${visible.length} of ${live.length}` : live.length} {title.toLowerCase()} · click a row to edit</div>
           {visible.length === 0 ? <EmptyState title="No matches">Try a different search.</EmptyState> : (
             <div className="adm-list">
               {visible.map(item => {
                 const r = row(item)
                 return (
-                  <div key={item.id} className="adm-row click" tabIndex={0} role="button"
+                  <div key={item.id} className="adm-row click" tabIndex={0} role="button" aria-label={`Edit ${r.title}`}
                     onClick={() => setPanel({ form: { ...item } })}
                     onKeyDown={e => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); setPanel({ form: { ...item } }) } }}>
                     {r.photo ? <img className="adm-avatar" src={r.photo} alt="" />
@@ -70,8 +81,7 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
                       {r.meta && <div className="adm-row-meta">{r.meta}</div>}
                     </div>
                     <div className="adm-row-actions">
-                      <button className="adm-btn cyan sm" onClick={e => { e.stopPropagation(); setPanel({ form: { ...item } }) }}>Edit</button>
-                      <button className="adm-btn danger sm" onClick={e => { e.stopPropagation(); deleteWithUndo({ table, id: item.id, label: r.title, onDone: load }) }}>Remove</button>
+                      <button className="adm-btn danger sm" aria-label={`Remove ${r.title}`} onClick={e => { e.stopPropagation(); deleteWithUndo({ table, id: item.id, label: r.title, onDone: load }) }}>Remove</button>
                     </div>
                   </div>
                 )
@@ -81,7 +91,8 @@ function ApprovedList({ table, title, subtitle, searchHint, fields, searchText, 
         </>
       )}
       {panel && (
-        <SidePanel title={`Edit ${noun.toLowerCase()}`} onClose={() => setPanel(null)} onSubmit={save} saving={saving} canSave={!!String(panel.form.name || '').trim()} submitLabel="Save changes">
+        <SidePanel title={`Edit ${noun.toLowerCase()}`} onClose={() => setPanel(null)} onSubmit={save} saving={saving} canSave={!!String(panel.form.name || '').trim()} submitLabel="Save changes"
+          deleteLabel="Remove" onDelete={() => { const f = panel.form; setPanel(null); deleteWithUndo({ table, id: f.id, label: f.name, onDone: load }) }}>
           <div className="adm-form-grid">
             {fields.map(f => (
               <Field key={f.key} spec={f} form={panel.form} onChange={(k, v) => setPanel(p => ({ ...p, form: { ...p.form, [k]: v } }))} />
@@ -104,9 +115,9 @@ const MEMBER_FIELDS = [
   { key: 'instagram', label: 'Instagram' },
 ]
 
-export function MembersSection() {
+export function MembersSection({ intent, clearIntent }) {
   return (
-    <ApprovedList
+    <ApprovedList intent={intent} clearIntent={clearIntent}
       table="members" noun="Member" title="Members"
       subtitle="Approved Directory profiles. New submissions wait in Approvals first."
       searchHint="Search by name, location or specialty…"
@@ -117,9 +128,9 @@ export function MembersSection() {
   )
 }
 
-export function PinsSection() {
+export function PinsSection({ intent, clearIntent }) {
   return (
-    <ApprovedList
+    <ApprovedList intent={intent} clearIntent={clearIntent}
       table="map_pins" noun="Pin" title="Map Pins"
       subtitle="Everyone shown on the /map page. Separate from the Directory - editing a pin never touches a Directory profile."
       searchHint="Search by name or location…"
